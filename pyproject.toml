@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "grizzlaxy"
+version = "0.0.0"
+description = "Create an app from a galaxy of starbears"
+authors = ["Olivier Breuleux <breuleux@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+authlib = "^1.2.0"
+httpx = "^0.24.1"
+itsdangerous = "^2.1.2"
+starbear = "^0.0.4"
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.3.0"
+ruff = "^0.0.274"
+
+[tool.poetry.scripts]
+grizzlaxy = "grizzlaxy.cli:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 99
+extend-select = ["I"]
