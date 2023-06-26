@@ -5,23 +5,24 @@ import pkgutil
 import runpy
 from pathlib import Path
 
+from ovld import ovld
 from starbear.serve import MotherBear
-from starlette.routing import Mount
+from starlette.routing import Mount, Route
+
+from .index import Index
 
 
 def collect_routes_from_module(mod):
     location = Path(mod.__file__).parent
-    routes = []
-    for info in pkgutil.walk_packages([location], prefix=f"{mod.__name__}."):
+    routes = {}
+    for info in pkgutil.iter_modules([location], prefix=f"{mod.__name__}."):
         submod = importlib.import_module(info.name)
         path = f"/{submod.__name__.split('.')[-1]}/"
         subroutes = getattr(submod, "ROUTES", None)
-        if isinstance(subroutes, MotherBear):
-            subroutes = subroutes.routes()
         if subroutes is not None:
-            routes.append(Mount(path, routes=subroutes))
+            routes[path] = subroutes
         elif info.ispkg:
-            routes.append(Mount(path, routes=collect_routes_from_module(submod)))
+            routes[path] = collect_routes_from_module(submod)
     return routes
 
 
@@ -34,8 +35,33 @@ def collect_routes(path):
 
     if path.is_dir():
         mod = importlib.import_module(path.stem)
-        return Mount("/", routes=collect_routes_from_module(mod))
+        return {"/": collect_routes_from_module(mod)}
 
     else:
         glb = runpy.run_path(path)
-        return Mount(route_path, glb["ROUTES"])
+        return {route_path: glb["ROUTES"]}
+
+
+@ovld
+def compile_routes(path, routes: dict):
+    routes = dict(routes)
+    if "/" not in routes:
+        if "/index/" in routes:
+            routes["/"] = routes["/index/"]
+        else:
+            routes["/"] = Index()
+    routes = [compile_routes(path2, route) for path2, route in routes.items()]
+    return Mount(path, routes=routes)
+
+
+@ovld
+def compile_routes(path, mb: MotherBear):  # noqa: F811
+    return Mount(path, routes=mb.routes())
+
+
+@ovld
+def compile_routes(path, obj: object):  # noqa: F811
+    if callable(obj):
+        return Route(path, obj)
+    else:
+        raise TypeError(f"Cannot compile route for {path}: {obj}")

@@ -9,7 +9,7 @@ from starlette.config import Config
 from starlette.middleware.sessions import SessionMiddleware
 
 from .auth import OAuthMiddleware
-from .find import collect_routes
+from .find import collect_routes, compile_routes
 
 
 def main(argv=None):
@@ -28,7 +28,8 @@ def main(argv=None):
 
     options = parser.parse_args(argv[1:])
 
-    routes = collect_routes(options.root)
+    collected = collect_routes(options.root)
+    routes = compile_routes("/", collected)
 
     app = Starlette(routes=[routes])
 
@@ -51,5 +52,7 @@ def main(argv=None):
             permissions=json.load(open(options.permissions)),
         )
         app.add_middleware(SessionMiddleware, secret_key="!secret")
+
+    app.map = collected
 
     uvicorn.run(app, host=options.host, port=options.port, log_level="info")

@@ -12,6 +12,7 @@ authlib = "^1.2.0"
 httpx = "^0.24.1"
 itsdangerous = "^2.1.2"
 starbear = "^0.0.4"
+ovld = "^0.3.2"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"
