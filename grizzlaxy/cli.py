@@ -1,4 +1,5 @@
 import argparse
+import importlib
 import json
 import sys
 
@@ -10,7 +11,7 @@ from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from .auth import OAuthMiddleware
-from .find import collect_routes, compile_routes
+from .find import collect_routes, collect_routes_from_module, compile_routes
 
 
 def main(argv=None):
@@ -19,7 +20,12 @@ def main(argv=None):
 
     parser = argparse.ArgumentParser(description="Start a grizzlaxy of starbears.")
 
-    parser.add_argument("root", metavar="ROOT", help="Directory or script")
+    parser.add_argument(
+        "root", nargs="?", metavar="ROOT", help="Directory or script", default=None
+    )
+    parser.add_argument(
+        "--module", "-m", metavar="MODULE", help="Directory or script", default=None
+    )
     parser.add_argument("--port", type=int, help="Port to serve on", default=8000)
     parser.add_argument("--host", type=str, help="Hostname", default="127.0.0.1")
     parser.add_argument(
@@ -36,12 +42,19 @@ def main(argv=None):
 
     options = parser.parse_args(argv[1:])
 
+    if not options.root and not options.module:
+        exit("MISSING ARGUMENT: Either the ROOT argument or -m MODULE must be used")
+
     if options.hot:
         import jurigged
 
         jurigged.watch(options.root)
 
-    collected = collect_routes(options.root)
+    if options.root:
+        collected = collect_routes(options.root)
+    elif options.module:
+        collected = collect_routes_from_module(importlib.import_module(options.module))
+
     routes = compile_routes("/", collected)
 
     app = Starlette(routes=[routes])

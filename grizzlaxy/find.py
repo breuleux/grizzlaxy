@@ -13,16 +13,23 @@ from .index import Index
 
 
 def collect_routes_from_module(mod):
-    location = Path(mod.__file__).parent
-    routes = {}
-    for info in pkgutil.iter_modules([str(location)], prefix=f"{mod.__name__}."):
-        submod = importlib.import_module(info.name)
-        path = f"/{submod.__name__.split('.')[-1]}/"
+    def process_module(path, submod, ispkg):
         subroutes = getattr(submod, "ROUTES", None)
         if subroutes is not None:
             routes[path] = subroutes
-        elif info.ispkg:
+        elif ispkg:
             routes[path] = collect_routes_from_module(submod)
+
+    locations = mod.__spec__.submodule_search_locations
+    routes = {}
+    if locations is None:
+        process_module("/", mod, False)
+    else:
+        for info in pkgutil.iter_modules(locations, prefix=f"{mod.__name__}."):
+            submod = importlib.import_module(info.name)
+            path = f"/{submod.__name__.split('.')[-1]}/"
+            process_module(path, submod, info.ispkg)
+
     return routes
 
 
