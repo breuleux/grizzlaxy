@@ -10,7 +10,6 @@ template = here() / "index-template.html"
 
 class Index:
     async def __call__(self, scope, receive, send):
-        assert scope["type"] == "http"
         app = scope["app"]
         content = render("/", app.map, restrict=scope["root_path"])
         content = H.div(

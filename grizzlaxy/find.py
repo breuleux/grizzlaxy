@@ -15,7 +15,7 @@ from .index import Index
 def collect_routes_from_module(mod):
     location = Path(mod.__file__).parent
     routes = {}
-    for info in pkgutil.iter_modules([location], prefix=f"{mod.__name__}."):
+    for info in pkgutil.iter_modules([str(location)], prefix=f"{mod.__name__}."):
         submod = importlib.import_module(info.name)
         path = f"/{submod.__name__.split('.')[-1]}/"
         subroutes = getattr(submod, "ROUTES", None)

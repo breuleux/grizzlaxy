@@ -6,6 +6,7 @@ import uvicorn
 from authlib.integrations.starlette_client import OAuth
 from starlette.applications import Starlette
 from starlette.config import Config
+from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from .auth import OAuthMiddleware
@@ -25,6 +26,10 @@ def main(argv=None):
         "--permissions", type=str, help="Permissions file", default=None
     )
     parser.add_argument("--secrets", type=str, help="Secrets file", default=None)
+    parser.add_argument("--ssl-keyfile", type=str, help="SSL key file", default=None)
+    parser.add_argument(
+        "--ssl-certfile", type=str, help="SSL certificate file", default=None
+    )
 
     options = parser.parse_args(argv[1:])
 
@@ -32,6 +37,10 @@ def main(argv=None):
     routes = compile_routes("/", collected)
 
     app = Starlette(routes=[routes])
+
+    if options.ssl_keyfile:
+        # This doesn't seem to do anything?
+        app.add_middleware(HTTPSRedirectMiddleware)
 
     if options.secrets:
         config = Config(options.secrets)
@@ -55,4 +64,11 @@ def main(argv=None):
 
     app.map = collected
 
-    uvicorn.run(app, host=options.host, port=options.port, log_level="info")
+    uvicorn.run(
+        app,
+        host=options.host,
+        port=options.port,
+        log_level="info",
+        ssl_keyfile=options.ssl_keyfile,
+        ssl_certfile=options.ssl_certfile,
+    )
