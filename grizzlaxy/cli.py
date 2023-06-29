@@ -30,8 +30,16 @@ def main(argv=None):
     parser.add_argument(
         "--ssl-certfile", type=str, help="SSL certificate file", default=None
     )
+    parser.add_argument(
+        "--hot", action="store_true", help="Automatically hot-reload the code"
+    )
 
     options = parser.parse_args(argv[1:])
+
+    if options.hot:
+        import jurigged
+
+        jurigged.watch(options.root)
 
     collected = collect_routes(options.root)
     routes = compile_routes("/", collected)
