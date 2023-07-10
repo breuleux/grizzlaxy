@@ -3,6 +3,7 @@
 import importlib
 import pkgutil
 import runpy
+from functools import reduce
 from pathlib import Path
 
 from ovld import ovld
@@ -33,6 +34,17 @@ def collect_routes_from_module(mod):
     return routes
 
 
+def _flatten(routes):
+    return reduce(list.__iadd__, routes, [])
+
+
+def _mount(path, routes):
+    if path == "/":
+        return routes
+    else:
+        return [Mount(path, routes=routes)]
+
+
 def collect_routes(path):
     path = Path(path)
     if not path.exists():
@@ -57,18 +69,20 @@ def compile_routes(path, routes: dict):
             routes["/"] = routes["/index/"]
         else:
             routes["/"] = Index()
-    routes = [compile_routes(path2, route) for path2, route in routes.items()]
-    return Mount(path, routes=routes)
+    return _mount(
+        path,
+        _flatten([compile_routes(path2, route) for path2, route in routes.items()]),
+    )
 
 
 @ovld
 def compile_routes(path, mb: MotherBear):  # noqa: F811
-    return Mount(path, routes=mb.routes())
+    return _mount(path, mb.routes())
 
 
 @ovld
 def compile_routes(path, obj: object):  # noqa: F811
     if callable(obj):
-        return Route(path, obj)
+        return [Route(path, obj)]
     else:
         raise TypeError(f"Cannot compile route for {path}: {obj}")

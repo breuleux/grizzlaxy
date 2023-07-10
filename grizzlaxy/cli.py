@@ -57,7 +57,7 @@ def main(argv=None):
 
     routes = compile_routes("/", collected)
 
-    app = Starlette(routes=[routes])
+    app = Starlette(routes=routes)
 
     if options.ssl_keyfile:
         # This doesn't seem to do anything?
