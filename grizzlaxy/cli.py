@@ -10,7 +10,7 @@ from starlette.config import Config
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from .auth import OAuthMiddleware
+from .auth import OAuthMiddleware, PermissionDict
 from .find import collect_routes, collect_routes_from_module, compile_routes
 
 
@@ -79,7 +79,7 @@ def main(argv=None):
         app.add_middleware(
             OAuthMiddleware,
             oauth=oauth,
-            permissions=json.load(open(options.permissions)),
+            is_authorized=PermissionDict(json.load(open(options.permissions))),
         )
         app.add_middleware(SessionMiddleware, secret_key="!secret")
 
