@@ -10,9 +10,11 @@ class PermissionDict:
     def __init__(self, permissions):
         self.cache = defaultdict(dict)
         self.wild = defaultdict(list)
-        self.subroutes = {}
         for path, allowed in permissions.items():
-            path = tuple(path.split("/"))
+            if path == "/":
+                path = ("",)
+            else:
+                path = tuple(path.split("/"))
             for user in allowed:
                 if "*" in user:
                     self.wild[path].append(user)
