@@ -2,6 +2,7 @@ import argparse
 import importlib
 import json
 import sys
+from pathlib import Path
 
 import uvicorn
 from authlib.integrations.starlette_client import OAuth
@@ -64,6 +65,23 @@ def main(argv=None):
         app.add_middleware(HTTPSRedirectMiddleware)
 
     if options.secrets:
+        if not Path(options.secrets).exists():
+            sys.exit(f"ERROR: file {options.secrets} does not exist")
+
+        if options.permissions:
+            if not Path(options.permissions).exists():
+                sys.exit(f"ERROR: file '{options.permissions}' does not exist")
+            try:
+                with open(options.permissions) as f:
+                    permissions = json.load(f)
+            except json.JSONDecodeError as exc:
+                sys.exit(
+                    f"ERROR decoding JSON: {exc}\n"
+                    f"Please verify if file '{options.permissions}' contains valid JSON."
+                )
+        else:
+            permissions = {}
+
         config = Config(options.secrets)
         oauth = OAuth(config)
 
@@ -79,7 +97,7 @@ def main(argv=None):
         app.add_middleware(
             OAuthMiddleware,
             oauth=oauth,
-            is_authorized=PermissionDict(json.load(open(options.permissions))),
+            is_authorized=PermissionDict(permissions),
         )
         app.add_middleware(SessionMiddleware, secret_key="!secret")
 
