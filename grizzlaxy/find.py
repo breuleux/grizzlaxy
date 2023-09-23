@@ -7,7 +7,7 @@ from functools import reduce
 from pathlib import Path
 
 from ovld import ovld
-from starbear.serve import MotherBear
+from starbear.serve import BasicBear, MotherBear
 from starlette.routing import Mount, Route
 
 from .index import Index
@@ -77,6 +77,11 @@ def compile_routes(path, routes: dict):
 
 @ovld
 def compile_routes(path, mb: MotherBear):  # noqa: F811
+    return _mount(path, mb.routes())
+
+
+@ovld
+def compile_routes(path, mb: BasicBear):  # noqa: F811
     return _mount(path, mb.routes())
 
 

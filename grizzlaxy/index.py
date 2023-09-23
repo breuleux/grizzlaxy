@@ -1,25 +1,30 @@
+from pathlib import Path
+
 from hrepr import H
 from ovld import ovld
-from starbear.serve import MotherBear
-from starlette.responses import HTMLResponse
+from starbear.serve import LoneBear
+from starbear.templating import template
 
 from .utils import here
 
-template = here() / "index-template.html"
 
+class Index(LoneBear):
+    hidden = True
 
-class Index:
-    async def __call__(self, scope, receive, send):
+    def __init__(self, template=here() / "index-template.html"):
+        super().__init__(self.run)
+        self.location = template.parent if isinstance(template, Path) else None
+        self.template = template
+
+    async def run(self, request):
+        scope = request.scope
         app = scope["app"]
         content = render("/", app.map, restrict=scope["root_path"])
-        content = H.div(
-            H.h2("Application index"),
-            content,
+        return template(
+            self.template,
+            body=content,
+            _asset=lambda name: self.location / name,
         )
-        html = template.read_text()
-        html = html.replace("{{content}}", str(content))
-        response = HTMLResponse(html)
-        await response(scope, receive, send)
 
 
 def render(base_path, obj, *, restrict):
@@ -48,15 +53,8 @@ def _render(base_path: str, d: dict, *, restrict):
 
 
 @ovld
-def _render(base_path: str, mb: MotherBear, *, restrict):
-    return H.span(mb.fn.__doc__)
-
-
-@ovld
-def _render(base_path: str, idx: Index, *, restrict):
-    return None
-
-
-@ovld
 def _render(base_path: str, obj: object, *, restrict):
-    return H.span(str(obj))
+    if getattr(obj, "hidden", False):
+        return None
+    obj = getattr(obj, "__doc__", obj)
+    return H.span("No description." if obj is None else str(obj))
