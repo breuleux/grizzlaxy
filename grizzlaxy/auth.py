@@ -1,5 +1,7 @@
+import json
 from collections import defaultdict
 from fnmatch import fnmatch
+from pathlib import Path
 
 from hrepr import H
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -8,9 +10,13 @@ from starlette.responses import HTMLResponse, RedirectResponse
 
 class PermissionDict:
     def __init__(self, permissions):
+        self.permissions = permissions
+        self.reset()
+
+    def reset(self):
         self.cache = defaultdict(dict)
         self.wild = defaultdict(list)
-        for path, allowed in permissions.items():
+        for path, allowed in self.permissions.items():
             if path == "/":
                 path = ("",)
             else:
@@ -38,6 +44,34 @@ class PermissionDict:
                 else:
                     cache[email] = False
         return False
+
+
+class PermissionFile(PermissionDict):
+    def __init__(self, permissions_file):
+        permissions_file = Path(permissions_file)
+        self.permissions_file = permissions_file
+        if not self.permissions_file.exists():
+            raise FileNotFoundError(self.permissions_file)
+        self.reset()
+
+    def reset(self):
+        self.permissions = json.loads(self.read())
+        super().reset()
+
+    def read(self):
+        return self.permissions_file.read_text()
+
+    def write(self, new_permissions, dry=False):
+        previous = self.read()
+        json.loads(new_permissions)
+        if not dry:
+            self.permissions_file.write_text(new_permissions)
+            try:
+                self.reset()
+            except Exception:
+                self.permissions_file.write_text(previous)
+                self.reset()
+                raise
 
 
 class OAuthMiddleware(BaseHTTPMiddleware):

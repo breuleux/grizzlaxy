@@ -3,6 +3,7 @@ import importlib
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import uvicorn
 from authlib.integrations.starlette_client import OAuth
@@ -11,7 +12,7 @@ from starlette.config import Config
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
-from .auth import OAuthMiddleware, PermissionDict
+from .auth import OAuthMiddleware, PermissionDict, PermissionFile
 from .find import collect_routes, collect_routes_from_module, compile_routes
 
 
@@ -64,23 +65,24 @@ def main(argv=None):
         # This doesn't seem to do anything?
         app.add_middleware(HTTPSRedirectMiddleware)
 
+    permissions = None
+
     if options.secrets:
         if not Path(options.secrets).exists():
             sys.exit(f"ERROR: file {options.secrets} does not exist")
 
         if options.permissions:
-            if not Path(options.permissions).exists():
-                sys.exit(f"ERROR: file '{options.permissions}' does not exist")
             try:
-                with open(options.permissions) as f:
-                    permissions = json.load(f)
+                permissions = PermissionFile(options.permissions)
+            except FileNotFoundError:
+                sys.exit(f"ERROR: file '{options.permissions}' does not exist")
             except json.JSONDecodeError as exc:
                 sys.exit(
                     f"ERROR decoding JSON: {exc}\n"
                     f"Please verify if file '{options.permissions}' contains valid JSON."
                 )
         else:
-            permissions = {}
+            permissions = PermissionDict({})
 
         config = Config(options.secrets)
         oauth = OAuth(config)
@@ -97,11 +99,14 @@ def main(argv=None):
         app.add_middleware(
             OAuthMiddleware,
             oauth=oauth,
-            is_authorized=PermissionDict(permissions),
+            is_authorized=permissions,
         )
         app.add_middleware(SessionMiddleware, secret_key="!secret")
 
     app.map = collected
+    app.grizzlaxy = SimpleNamespace(
+        permissions=permissions,
+    )
 
     uvicorn.run(
         app,
