@@ -28,6 +28,8 @@ class PermissionDict:
                     self.cache[path][user] = True
 
     def __call__(self, user, path):
+        path, *_ = path.split("!", 1)
+        path = path.removesuffix("/")
         if path == "/":
             parts = ("",)
         else:
