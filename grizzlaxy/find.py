@@ -31,6 +31,9 @@ def collect_routes_from_module(mod):
             path = f"/{submod.__name__.split('.')[-1]}/"
             process_module(path, submod, info.ispkg)
 
+    if "/index/" not in routes.keys():
+        routes["/index/"] = Index()
+
     return routes
 
 

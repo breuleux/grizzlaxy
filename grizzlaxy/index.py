@@ -19,10 +19,13 @@ class Index(LoneBear):
     async def run(self, request):
         scope = request.scope
         app = scope["app"]
-        content = render("/", app.map, restrict=scope["root_path"])
+        root_path = scope["root_path"]
+        content = render("/", app.map, restrict=root_path)
+        if content is None:
+            content = render("/", app.map, restrict="/".join(root_path.split("/")[:-1]))
         return template(
             self.template,
-            body=content,
+            body=content or "",
             _asset=lambda name: self.location / name,
         )
 
@@ -38,18 +41,20 @@ def _render(base_path: str, d: dict, *, restrict):
     def _join(p):
         return f"{base_path.rstrip('/')}{p.rstrip('/')}"
 
+    has_results = False
     results = H.table()
     for path, value in d.items():
         real_path = _join(path) or "/"
         description = render(real_path, value, restrict=restrict)
         if description is not None:
+            has_results = True
             results = results(
                 H.tr(
                     H.td["url"](H.a(path, href=real_path)),
                     H.td(description),
                 )
             )
-    return results
+    return results if has_results else None
 
 
 @ovld

@@ -28,10 +28,14 @@ class PermissionDict:
                     self.cache[path][user] = True
 
     def __call__(self, user, path):
-        parts = tuple(path.split("/"))
+        if path == "/":
+            parts = ("",)
+        else:
+            parts = tuple(path.split("/"))
         email = user["email"]
-        for i in range(len(parts)):
-            current = parts[: i + 1]
+        partials = [(*parts[: i + 1], "**") for i in range(len(parts))]
+        to_check = [parts, *partials]
+        for current in to_check:
             cache = self.cache[current]
             if email in cache:
                 if cache[email]:
