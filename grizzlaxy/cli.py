@@ -26,6 +26,7 @@ def grizzlaxy(
     ssl=None,
     oauth=None,
     watch=False,
+    sentry=None,
     relative_to=None,
 ):
     relative_to = Path(relative_to)
@@ -99,6 +100,15 @@ def grizzlaxy(
         app.add_middleware(SessionMiddleware, secret_key=uuid4().hex)
     else:
         permissions = None
+
+    if sentry and sentry.get("enabled", True):
+        import sentry_sdk
+
+        sentry_sdk.init(
+            dsn=sentry.get("dsn", None),
+            traces_sample_rate=sentry.get("traces_sample_rate", None),
+            environment=sentry.get("environment", None),
+        )
 
     app.map = collected
     app.grizzlaxy = SimpleNamespace(
@@ -177,6 +187,7 @@ def main(argv=None):
         "host": "127.0.0.1",
         "ssl": {},
         "oauth": {},
+        "sentry": {},
         "watch": None,
         "relative_to": Path.cwd(),
     }
