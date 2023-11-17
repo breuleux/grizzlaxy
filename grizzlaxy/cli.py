@@ -26,7 +26,7 @@ def grizzlaxy(
     permissions=None,
     ssl=None,
     oauth=None,
-    hot=False,
+    watch=False,
     relative_to=None,
 ):
     relative_to = Path(relative_to)
@@ -38,13 +38,16 @@ def grizzlaxy(
     if isinstance(module, str):
         module = importlib.import_module(module)
 
-    if hot:
+    if watch:
         import jurigged
 
-        if module is not None:
-            jurigged.watch(str(Path(module.__file__).parent))
-        else:
-            jurigged.watch(str(root))
+        if watch is True:
+            if module is not None:
+                watch = Path(module.__file__).parent
+            else:
+                watch = root
+
+        jurigged.watch(str(watch))
 
     if root:
         collected = collect_routes(root)
@@ -146,6 +149,11 @@ def main(argv=None):
         action=argparse.BooleanOptionalAction,
         help="Automatically hot-reload the code",
     )
+    parser.add_argument(
+        "--watch",
+        type=str,
+        help="Path to watch for changes with jurigged",
+    )
 
     options = parser.parse_args(argv[1:])
 
@@ -161,7 +169,7 @@ def main(argv=None):
         "permissions": None,
         "ssl": {},
         "oauth": {},
-        "hot": False,
+        "watch": None,
         "relative_to": Path.cwd(),
     }
 
@@ -173,10 +181,15 @@ def main(argv=None):
         config.update(content)
         config["relative_to"] = config_file.parent
 
-    for field in ("root", "module", "port", "host", "hot", "permissions"):
+    for field in ("root", "module", "port", "host", "watch", "permissions"):
         value = getattr(options, field)
         if value is not None:
             config[field] = value
+
+    if options.hot and not config["watch"]:
+        config["watch"] = True
+    if options.hot is False:
+        config["watch"] = None
 
     # TODO: remove this option
     if options.secrets:
