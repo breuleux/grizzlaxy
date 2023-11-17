@@ -23,7 +23,6 @@ def grizzlaxy(
     module=None,
     port=None,
     host=None,
-    permissions=None,
     ssl=None,
     oauth=None,
     watch=False,
@@ -62,7 +61,8 @@ def grizzlaxy(
         # This doesn't seem to do anything?
         app.add_middleware(HTTPSRedirectMiddleware)
 
-    if oauth:
+    if oauth and oauth.get("enabled", True):
+        permissions = oauth.get("permissions", None)
         if permissions:
             if isinstance(permissions, str):
                 permissions = Path(permissions)
@@ -105,17 +105,26 @@ def grizzlaxy(
         permissions=permissions,
     )
 
+    def _ensure(filename, enabled):
+        if not enabled or not filename:
+            return None
+        fullpath = relative_to / filename
+        if not Path(fullpath).exists():
+            raise FileNotFoundError(fullpath)
+        return fullpath
+
     ssl = ssl or {}
-    ssl_keyfile = ssl.get("keyfile", None)
-    ssl_certfile = ssl.get("certfile", None)
+    ssl_enabled = ssl.get("enabled", True)
+    ssl_keyfile = _ensure(ssl.get("keyfile", None), ssl_enabled)
+    ssl_certfile = _ensure(ssl.get("certfile", None), ssl_enabled)
 
     uvicorn.run(
         app,
         host=host,
         port=port,
         log_level="info",
-        ssl_keyfile=ssl_keyfile and relative_to / ssl_keyfile,
-        ssl_certfile=ssl_certfile and relative_to / ssl_certfile,
+        ssl_keyfile=ssl_keyfile,
+        ssl_certfile=ssl_certfile,
     )
 
 
@@ -166,7 +175,6 @@ def main(argv=None):
         "module": None,
         "port": 8000,
         "host": "127.0.0.1",
-        "permissions": None,
         "ssl": {},
         "oauth": {},
         "watch": None,
@@ -181,7 +189,7 @@ def main(argv=None):
         config.update(content)
         config["relative_to"] = config_file.parent
 
-    for field in ("root", "module", "port", "host", "watch", "permissions"):
+    for field in ("root", "module", "port", "host", "watch"):
         value = getattr(options, field)
         if value is not None:
             config[field] = value
@@ -202,6 +210,8 @@ def main(argv=None):
             },
             "secrets_file": options.secrets,
         }
+    if options.permissions:
+        config["oauth"]["permissions"] = options.permissions
 
     if options.ssl_keyfile:
         config["ssl"]["keyfile"] = options.ssl_keyfile
