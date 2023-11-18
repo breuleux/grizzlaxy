@@ -58,7 +58,20 @@ def grizzlaxy(
 
     app = Starlette(routes=routes)
 
-    if ssl:
+    def _ensure(filename, enabled):
+        if not enabled or not filename:
+            return None
+        fullpath = relative_to / filename
+        if not Path(fullpath).exists():
+            raise FileNotFoundError(fullpath)
+        return fullpath
+
+    ssl = ssl or {}
+    ssl_enabled = ssl.get("enabled", True)
+    ssl_keyfile = _ensure(ssl.get("keyfile", None), ssl_enabled)
+    ssl_certfile = _ensure(ssl.get("certfile", None), ssl_enabled)
+
+    if ssl_enabled and ssl_certfile and ssl_keyfile:
         # This doesn't seem to do anything?
         app.add_middleware(HTTPSRedirectMiddleware)
 
@@ -81,7 +94,8 @@ def grizzlaxy(
                 raise UsageError("permissions should be a path or dict")
         else:
             # Allow everyone everywhere (careful)
-            permissions = lambda user, path: True
+            def permissions(user, path):
+                return True
 
         oauth_config = Config(
             environ=oauth.get("environ", {}),
@@ -115,19 +129,6 @@ def grizzlaxy(
     app.grizzlaxy = SimpleNamespace(
         permissions=permissions,
     )
-
-    def _ensure(filename, enabled):
-        if not enabled or not filename:
-            return None
-        fullpath = relative_to / filename
-        if not Path(fullpath).exists():
-            raise FileNotFoundError(fullpath)
-        return fullpath
-
-    ssl = ssl or {}
-    ssl_enabled = ssl.get("enabled", True)
-    ssl_keyfile = _ensure(ssl.get("keyfile", None), ssl_enabled)
-    ssl_certfile = _ensure(ssl.get("certfile", None), ssl_enabled)
 
     uvicorn.run(
         app,
