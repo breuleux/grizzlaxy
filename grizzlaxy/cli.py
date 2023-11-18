@@ -80,7 +80,8 @@ def grizzlaxy(
             else:
                 raise UsageError("permissions should be a path or dict")
         else:
-            permissions = PermissionDict({})
+            # Allow everyone everywhere (careful)
+            permissions = lambda user, path: True
 
         oauth_config = Config(
             environ=oauth.get("environ", {}),
