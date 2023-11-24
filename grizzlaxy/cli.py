@@ -35,6 +35,11 @@ def grizzlaxy(
         # xor requires exactly one of the two to be given
         raise UsageError("Either the root or module argument must be provided.")
 
+    if watch:
+        # Sometimes has to be done before importing the module to watch in order
+        # to properly collect function data
+        import codefind
+
     if isinstance(module, str):
         module = importlib.import_module(module)
 
