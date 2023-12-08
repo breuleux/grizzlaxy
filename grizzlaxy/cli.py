@@ -15,7 +15,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from .auth import OAuthMiddleware, PermissionDict, PermissionFile
 from .find import collect_routes, collect_routes_from_module, compile_routes
-from .utils import UsageError, read_config
+from .utils import UsageError, merge, read_configs
 
 
 def grizzlaxy(
@@ -66,10 +66,9 @@ def grizzlaxy(
     def _ensure(filename, enabled):
         if not enabled or not filename:
             return None
-        fullpath = relative_to / filename
-        if not Path(fullpath).exists():
-            raise FileNotFoundError(fullpath)
-        return fullpath
+        if not Path(filename).exists():
+            raise FileNotFoundError(filename)
+        return filename
 
     ssl = ssl or {}
     ssl_enabled = ssl.get("enabled", True)
@@ -87,7 +86,7 @@ def grizzlaxy(
                 permissions = Path(permissions)
             if isinstance(permissions, Path):
                 try:
-                    permissions = PermissionFile(relative_to / permissions)
+                    permissions = PermissionFile(permissions)
                 except json.JSONDecodeError as exc:
                     sys.exit(
                         f"ERROR decoding JSON: {exc}\n"
@@ -158,7 +157,12 @@ def main(argv=None):
         "--module", "-m", metavar="MODULE", help="Directory or script", default=None
     )
     parser.add_argument(
-        "--config", "-C", metavar="CONFIG", help="Configuration file", default=None
+        "--config",
+        "-C",
+        metavar="CONFIG",
+        action="append",
+        help="Configuration file(s)",
+        default=None,
     )
     parser.add_argument("--port", type=int, help="Port to serve on", default=None)
     parser.add_argument("--host", type=str, help="Hostname", default=None)
@@ -188,38 +192,36 @@ def main(argv=None):
     ##############################
 
     config = {
-        "root": None,
-        "module": None,
-        "port": 8000,
-        "host": "127.0.0.1",
-        "ssl": {},
-        "oauth": {},
-        "sentry": {},
-        "watch": None,
-        "relative_to": Path.cwd(),
+        "grizzlaxy": {
+            "root": None,
+            "module": None,
+            "port": 8000,
+            "host": "127.0.0.1",
+            "ssl": {},
+            "oauth": {},
+            "sentry": {},
+            "watch": None,
+        }
     }
 
     if options.config:
-        config_file = Path(options.config)
-        content = read_config(config_file)
-        if "grizzlaxy" in content:
-            content = content["grizzlaxy"]
-        config.update(content)
-        config["relative_to"] = config_file.parent
+        config = merge(config, read_configs(*options.config))
+
+    gconfig = config["grizzlaxy"]
 
     for field in ("root", "module", "port", "host", "watch"):
         value = getattr(options, field)
         if value is not None:
-            config[field] = value
+            gconfig[field] = value
 
     if options.hot and not config["watch"]:
-        config["watch"] = True
+        gconfig["watch"] = True
     if options.hot is False:
-        config["watch"] = None
+        gconfig["watch"] = None
 
     # TODO: remove this option
     if options.secrets:
-        config["oauth"] = {
+        gconfig["oauth"] = {
             "name": "google",
             "server_metadata_url": "https://accounts.google.com/.well-known/openid-configuration",
             "client_kwargs": {
@@ -229,19 +231,19 @@ def main(argv=None):
             "secrets_file": options.secrets,
         }
     if options.permissions:
-        config["oauth"]["permissions"] = options.permissions
+        gconfig["oauth"]["permissions"] = options.permissions
 
     if options.ssl_keyfile:
-        config["ssl"]["keyfile"] = options.ssl_keyfile
+        gconfig["ssl"]["keyfile"] = options.ssl_keyfile
     if options.ssl_certfile:
-        config["ssl"]["certfile"] = options.ssl_certfile
+        gconfig["ssl"]["certfile"] = options.ssl_certfile
 
     #################
     # Run grizzlaxy #
     #################
 
     try:
-        grizzlaxy(**config)
+        grizzlaxy(**gconfig)
     except UsageError as exc:
         exit(f"ERROR: {exc}")
     except FileNotFoundError as exc:
