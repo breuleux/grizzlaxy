@@ -109,6 +109,8 @@ def absolutize_paths(li: list, dir: Path):  # noqa: F811
 def absolutize_paths(s: str, dir: Path):  # noqa: F811
     if s.startswith("./") and s != "./":
         return str(dir / s)
+    elif s.startswith("../") and s != "../":
+        return str(dir / s)
     else:
         return s
 

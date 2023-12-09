@@ -25,14 +25,13 @@ from .utils import UsageError, merge, read_configs
 
 
 class JuriggedLooper:
-    def __init__(self, registry, towatch):
+    def __init__(self, watcher):
         self.future = None
-        self.registry = registry
-        self.towatch = towatch
-        self.registry.activity.register(self.handle)
+        self.watcher = watcher
+        self.watcher.activity.append(self.handle)
 
-    def handle(self, event):
-        if isinstance(event, self.towatch) and self.future and not self.future.done():
+    def handle(self):
+        if self.future and not self.future.done():
             self.future.set_result(True)
 
     async def __aiter__(self):
@@ -43,10 +42,37 @@ class JuriggedLooper:
                 await asyncio.sleep(0.05)
                 yield True
         except asyncio.CancelledError:
-            self.registry.activity.remove(self.handle)
+            self.watcher.activity.remove(self.handle)
 
 
-def inject_reloading_code(routes):
+class Watcher:
+    def __init__(self, watch, registry, towatch):
+        from watchdog.observers import Observer
+
+        self.watch = watch
+        self.registry = registry
+        self.towatch = towatch
+        self.activity = []
+
+        self.registry.activity.register(self.handle_jurigged)
+        self.obs = Observer()
+        self.obs.schedule(self, self.watch, recursive=True)
+        self.obs.start()
+
+    def fire(self):
+        for listener in self.activity:
+            listener()
+
+    def handle_jurigged(self, event):
+        if isinstance(event, self.towatch):
+            self.fire()
+
+    def dispatch(self, event):
+        if not event.src_path.endswith(".py"):
+            self.fire()
+
+
+def inject_reloading_code(watch, routes):
     from jurigged.codetools import CodeFileOperation
     from jurigged.register import registry
 
@@ -61,8 +87,10 @@ def inject_reloading_code(routes):
         )
     )
 
+    watcher = Watcher(watch, registry, CodeFileOperation)
+
     async def event_source(request):
-        return EventSourceResponse(JuriggedLooper(registry, CodeFileOperation))
+        return EventSourceResponse(JuriggedLooper(watcher))
 
     routes.insert(0, Route("/!!events", event_source))
 
@@ -109,7 +137,7 @@ def grizzlaxy(
     routes = compile_routes("/", config, collected)
 
     if watch:
-        inject_reloading_code(routes)
+        inject_reloading_code(watch, routes)
 
     app = Starlette(routes=routes)
 
