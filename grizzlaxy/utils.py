@@ -1,8 +1,9 @@
-from functools import reduce
 import json
 import sys
-from ovld import ovld
+from functools import reduce
 from pathlib import Path
+
+from ovld import ovld
 
 
 class UsageError(Exception):
@@ -58,8 +59,8 @@ extensions_map = {
 }
 
 
-@ovld  # noqa: F811
-def merge(d1: dict, d2):
+@ovld
+def merge(d1: dict, d2):  # noqa: F811
     rval = type(d1)()
     for k, v in d1.items():
         if k in d2:
@@ -73,21 +74,21 @@ def merge(d1: dict, d2):
     return rval
 
 
-@ovld  # noqa: F811
-def merge(l1: list, l2: list):
+@ovld
+def merge(l1: list, l2: list):  # noqa: F811
     return l2
 
 
-@ovld  # noqa: F811
-def merge(l1: list, d: dict):
+@ovld
+def merge(l1: list, d: dict):  # noqa: F811
     if "append" in d:
         return l1 + d["append"]
     else:
         raise TypeError("Cannot merge list and dict unless dict has 'append' key")
 
 
-@ovld  # noqa: F811
-def merge(a: object, b):
+@ovld
+def merge(a: object, b):  # noqa: F811
     if hasattr(a, "__merge__"):
         return a.__merge__(b)
     else:
@@ -95,17 +96,17 @@ def merge(a: object, b):
 
 
 @ovld
-def absolutize_paths(d: dict, dir: Path):
+def absolutize_paths(d: dict, dir: Path):  # noqa: F811
     return {k: absolutize_paths(v, dir) for k, v in d.items()}
 
 
 @ovld
-def absolutize_paths(l: list, dir: Path):
-    return [absolutize_paths(v, dir) for v in l]
+def absolutize_paths(li: list, dir: Path):  # noqa: F811
+    return [absolutize_paths(v, dir) for v in li]
 
 
 @ovld
-def absolutize_paths(s: str, dir: Path):
+def absolutize_paths(s: str, dir: Path):  # noqa: F811
     if s.startswith("./") and s != "./":
         return str(dir / s)
     else:
@@ -113,7 +114,7 @@ def absolutize_paths(s: str, dir: Path):
 
 
 @ovld
-def absolutize_paths(obj: object, dir: Path):
+def absolutize_paths(obj: object, dir: Path):  # noqa: F811
     return obj
 
 

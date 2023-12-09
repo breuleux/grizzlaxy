@@ -7,7 +7,7 @@ from functools import reduce
 from pathlib import Path
 
 from ovld import ovld
-from starbear.serve import BasicBear, MotherBear
+from starbear.serve import AbstractBear, ConfigurableBear, ConfigurableSimpleBear
 from starlette.routing import Mount, Route
 
 from .index import Index
@@ -65,7 +65,7 @@ def collect_routes(path):
 
 
 @ovld
-def compile_routes(path, routes: dict):
+def compile_routes(path, config, routes: dict):
     routes = dict(routes)
     if "/" not in routes:
         if "/index/" in routes:
@@ -74,22 +74,27 @@ def compile_routes(path, routes: dict):
             routes["/"] = Index()
     return _mount(
         path,
-        _flatten([compile_routes(path2, route) for path2, route in routes.items()]),
+        _flatten(
+            [compile_routes(path2, config, route) for path2, route in routes.items()]
+        ),
     )
 
 
 @ovld
-def compile_routes(path, mb: MotherBear):  # noqa: F811
+def compile_routes(path, config, mb: AbstractBear):  # noqa: F811
     return _mount(path, mb.routes())
 
 
 @ovld
-def compile_routes(path, mb: BasicBear):  # noqa: F811
-    return _mount(path, mb.routes())
+def compile_routes(path, config, mb: type):  # noqa: F811
+    if issubclass(mb, (ConfigurableBear, ConfigurableSimpleBear)):
+        return compile_routes(path, config, mb(config))
+    else:
+        raise TypeError(f"Cannot compile route for {path}: {mb}")
 
 
 @ovld
-def compile_routes(path, obj: object):  # noqa: F811
+def compile_routes(path, config, obj: object):  # noqa: F811
     if callable(obj):
         return [Route(path, obj)]
     else:

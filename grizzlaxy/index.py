@@ -1,9 +1,6 @@
-from pathlib import Path
-
 from hrepr import H
 from ovld import ovld
 from starbear.serve import LoneBear
-from starbear.templating import template
 
 from .utils import here
 
@@ -11,10 +8,8 @@ from .utils import here
 class Index(LoneBear):
     hidden = True
 
-    def __init__(self, template=here() / "index-template.html"):
-        super().__init__(self.run)
-        self.location = template.parent if isinstance(template, Path) else None
-        self.template = template
+    def __init__(self, template=here() / "index-template.html", **kwargs):
+        super().__init__(self.run, template=template, **kwargs)
 
     async def run(self, request):
         scope = request.scope
@@ -23,11 +18,7 @@ class Index(LoneBear):
         content = render("/", app.map, restrict=root_path)
         if content is None:
             content = render("/", app.map, restrict="/".join(root_path.split("/")[:-1]))
-        return template(
-            self.template,
-            body=content or "",
-            _asset=lambda name: self.location / name,
-        )
+        return self.template(body=content or "")
 
 
 def render(base_path, obj, *, restrict):

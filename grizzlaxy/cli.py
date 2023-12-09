@@ -27,10 +27,8 @@ def grizzlaxy(
     oauth=None,
     watch=False,
     sentry=None,
-    relative_to=None,
+    config={},
 ):
-    relative_to = Path(relative_to)
-
     if not ((root is None) ^ (module is None)):
         # xor requires exactly one of the two to be given
         raise UsageError("Either the root or module argument must be provided.")
@@ -38,7 +36,7 @@ def grizzlaxy(
     if watch:
         # Sometimes has to be done before importing the module to watch in order
         # to properly collect function data
-        import codefind
+        import codefind  # noqa: F401
 
     if isinstance(module, str):
         module = importlib.import_module(module)
@@ -59,7 +57,7 @@ def grizzlaxy(
     elif module:
         collected = collect_routes_from_module(module)
 
-    routes = compile_routes("/", collected)
+    routes = compile_routes("/", config, collected)
 
     app = Starlette(routes=routes)
 
@@ -243,7 +241,8 @@ def main(argv=None):
     #################
 
     try:
-        grizzlaxy(**gconfig)
+        del config["grizzlaxy"]
+        grizzlaxy(**gconfig, config=config)
     except UsageError as exc:
         exit(f"ERROR: {exc}")
     except FileNotFoundError as exc:
