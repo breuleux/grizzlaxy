@@ -1,21 +1,70 @@
 import argparse
+import asyncio
 import importlib
 import json
 import sys
+from asyncio import Future
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
 import uvicorn
 from authlib.integrations.starlette_client import OAuth
+from hrepr import H
+from sse_starlette.sse import EventSourceResponse
+from starbear.serve import dev_injections
 from starlette.applications import Starlette
 from starlette.config import Config
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.routing import Route
 
 from .auth import OAuthMiddleware, PermissionDict, PermissionFile
 from .find import collect_routes, collect_routes_from_module, compile_routes
 from .utils import UsageError, merge, read_configs
+
+
+class JuriggedLooper:
+    def __init__(self, registry, towatch):
+        self.future = None
+        self.registry = registry
+        self.towatch = towatch
+        self.registry.activity.register(self.handle)
+
+    def handle(self, event):
+        if isinstance(event, self.towatch) and self.future and not self.future.done():
+            self.future.set_result(True)
+
+    async def __aiter__(self):
+        try:
+            while True:
+                self.future = Future()
+                await self.future
+                await asyncio.sleep(0.05)
+                yield True
+        except asyncio.CancelledError:
+            self.registry.activity.remove(self.handle)
+
+
+def inject_reloading_code(routes):
+    from jurigged.codetools import CodeFileOperation
+    from jurigged.register import registry
+
+    dev_injections.append(
+        H.script(
+            """
+            let src = new EventSource("/!!events");
+            src.onmessage = e => {
+                window.location.reload();
+            }
+            """
+        )
+    )
+
+    async def event_source(request):
+        return EventSourceResponse(JuriggedLooper(registry, CodeFileOperation))
+
+    routes.insert(0, Route("/!!events", event_source))
 
 
 def grizzlaxy(
@@ -58,6 +107,9 @@ def grizzlaxy(
         collected = collect_routes_from_module(module)
 
     routes = compile_routes("/", config, collected)
+
+    if watch:
+        inject_reloading_code(routes)
 
     app = Starlette(routes=routes)
 
