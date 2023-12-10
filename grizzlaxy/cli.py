@@ -4,6 +4,7 @@ import importlib
 import json
 import sys
 from asyncio import Future
+from functools import cached_property
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
@@ -72,27 +73,177 @@ class Watcher:
             self.fire()
 
 
-def inject_reloading_code(watch, routes):
-    from jurigged.codetools import CodeFileOperation
-    from jurigged.register import registry
+class Grizzlaxy:
+    def __init__(
+        self,
+        root=None,
+        module=None,
+        port=None,
+        host=None,
+        ssl=None,
+        oauth=None,
+        watch=False,
+        sentry=None,
+        config={},
+    ):
+        if not ((root is None) ^ (module is None)):
+            # xor requires exactly one of the two to be given
+            raise UsageError("Either the root or module argument must be provided.")
 
-    dev_injections.append(
-        H.script(
-            """
-            let src = new EventSource("/!!events");
-            src.onmessage = e => {
-                window.location.reload();
-            }
-            """
+        if watch:
+            # Sometimes has to be done before importing the module to watch in order
+            # to properly collect function data
+            import codefind  # noqa: F401
+
+        if isinstance(module, str):
+            module = importlib.import_module(module)
+
+        if watch:
+            import jurigged
+
+            if watch is True:
+                if module is not None:
+                    watch = Path(module.__file__).parent
+                else:
+                    watch = root
+
+            jurigged.watch(str(watch))
+
+        self.root = root
+        self.module = module
+        self.port = port
+        self.host = host
+        self.ssl = ssl
+        self.oauth = oauth
+        self.watch = watch
+        self.sentry = sentry
+        self.config = config
+
+        self.setup()
+
+    def setup(self):
+        if self.watch:
+            self.inject_reloading_code()
+
+        app = Starlette(routes=[])
+
+        def _ensure(filename, enabled):
+            if not enabled or not filename:
+                return None
+            if not Path(filename).exists():
+                raise FileNotFoundError(filename)
+            return filename
+
+        ssl_enabled = self.ssl.get("enabled", True)
+        self.ssl_keyfile = _ensure(self.ssl.get("keyfile", None), ssl_enabled)
+        self.ssl_certfile = _ensure(self.ssl.get("certfile", None), ssl_enabled)
+
+        if ssl_enabled and self.ssl_certfile and self.ssl_keyfile:
+            # This doesn't seem to do anything?
+            app.add_middleware(HTTPSRedirectMiddleware)
+
+        if self.oauth and self.oauth.get("enabled", True):
+            permissions = self.oauth.get("permissions", None)
+            if permissions:
+                if isinstance(permissions, str):
+                    permissions = Path(permissions)
+                if isinstance(permissions, Path):
+                    try:
+                        permissions = PermissionFile(permissions)
+                    except json.JSONDecodeError as exc:
+                        sys.exit(
+                            f"ERROR decoding JSON: {exc}\n"
+                            f"Please verify if file '{permissions}' contains valid JSON."
+                        )
+                elif isinstance(permissions, dict):
+                    permissions = PermissionDict(permissions)
+                else:
+                    raise UsageError("permissions should be a path or dict")
+            else:
+                # Allow everyone everywhere (careful)
+                def permissions(user, path):
+                    return True
+
+            oauth_config = Config(
+                environ=self.oauth.get("environ", {}),
+                env_file=self.oauth.get("secrets_file", None),
+            )
+            oauth_module = OAuth(oauth_config)
+            oauth_module.register(
+                name=self.oauth["name"],
+                server_metadata_url=self.oauth["server_metadata_url"],
+                client_kwargs=self.oauth["client_kwargs"],
+            )
+            app.add_middleware(
+                OAuthMiddleware,
+                oauth=oauth_module,
+                is_authorized=permissions,
+            )
+            app.add_middleware(SessionMiddleware, secret_key=uuid4().hex)
+        else:
+            permissions = None
+
+        if self.sentry and self.sentry.get("enabled", True):
+            import sentry_sdk
+
+            sentry_sdk.init(
+                dsn=self.sentry.get("dsn", None),
+                traces_sample_rate=self.sentry.get("traces_sample_rate", None),
+                environment=self.sentry.get("environment", None),
+            )
+
+        app.grizzlaxy = SimpleNamespace(
+            permissions=permissions,
         )
-    )
 
-    watcher = Watcher(watch, registry, CodeFileOperation)
+        self.app = app
+        self.set_routes()
 
-    async def event_source(request):
-        return EventSourceResponse(JuriggedLooper(watcher))
+    def inject_reloading_code(self):
+        dev_injections.append(
+            H.script(
+                """
+                let src = new EventSource("/!!events");
+                src.onmessage = e => {
+                    window.location.reload();
+                }
+                """
+            )
+        )
+        self.watcher.activity.append(self.set_routes)
 
-    routes.insert(0, Route("/!!events", event_source))
+    @cached_property
+    def watcher(self):
+        from jurigged.codetools import CodeFileOperation
+        from jurigged.register import registry
+
+        return Watcher(self.watch, registry, CodeFileOperation)
+
+    async def event_source(self, request):
+        return EventSourceResponse(JuriggedLooper(self.watcher))
+
+    def set_routes(self):
+        if self.root:
+            collected = collect_routes(self.root)
+        elif self.module:
+            collected = collect_routes_from_module(self.module)
+
+        routes = compile_routes("/", self.config, collected)
+        if self.watch:
+            routes.insert(0, Route("/!!events", self.event_source))
+
+        self.app.router.routes = routes
+        self.app.map = collected
+
+    def run(self):
+        uvicorn.run(
+            self.app,
+            host=self.host,
+            port=self.port,
+            log_level="info",
+            ssl_keyfile=self.ssl_keyfile,
+            ssl_certfile=self.ssl_certfile,
+        )
 
 
 def grizzlaxy(
@@ -106,120 +257,18 @@ def grizzlaxy(
     sentry=None,
     config={},
 ):
-    if not ((root is None) ^ (module is None)):
-        # xor requires exactly one of the two to be given
-        raise UsageError("Either the root or module argument must be provided.")
-
-    if watch:
-        # Sometimes has to be done before importing the module to watch in order
-        # to properly collect function data
-        import codefind  # noqa: F401
-
-    if isinstance(module, str):
-        module = importlib.import_module(module)
-
-    if watch:
-        import jurigged
-
-        if watch is True:
-            if module is not None:
-                watch = Path(module.__file__).parent
-            else:
-                watch = root
-
-        jurigged.watch(str(watch))
-
-    if root:
-        collected = collect_routes(root)
-    elif module:
-        collected = collect_routes_from_module(module)
-
-    routes = compile_routes("/", config, collected)
-
-    if watch:
-        inject_reloading_code(watch, routes)
-
-    app = Starlette(routes=routes)
-
-    def _ensure(filename, enabled):
-        if not enabled or not filename:
-            return None
-        if not Path(filename).exists():
-            raise FileNotFoundError(filename)
-        return filename
-
-    ssl = ssl or {}
-    ssl_enabled = ssl.get("enabled", True)
-    ssl_keyfile = _ensure(ssl.get("keyfile", None), ssl_enabled)
-    ssl_certfile = _ensure(ssl.get("certfile", None), ssl_enabled)
-
-    if ssl_enabled and ssl_certfile and ssl_keyfile:
-        # This doesn't seem to do anything?
-        app.add_middleware(HTTPSRedirectMiddleware)
-
-    if oauth and oauth.get("enabled", True):
-        permissions = oauth.get("permissions", None)
-        if permissions:
-            if isinstance(permissions, str):
-                permissions = Path(permissions)
-            if isinstance(permissions, Path):
-                try:
-                    permissions = PermissionFile(permissions)
-                except json.JSONDecodeError as exc:
-                    sys.exit(
-                        f"ERROR decoding JSON: {exc}\n"
-                        f"Please verify if file '{permissions}' contains valid JSON."
-                    )
-            elif isinstance(permissions, dict):
-                permissions = PermissionDict(permissions)
-            else:
-                raise UsageError("permissions should be a path or dict")
-        else:
-            # Allow everyone everywhere (careful)
-            def permissions(user, path):
-                return True
-
-        oauth_config = Config(
-            environ=oauth.get("environ", {}),
-            env_file=oauth.get("secrets_file", None),
-        )
-        oauth_module = OAuth(oauth_config)
-        oauth_module.register(
-            name=oauth["name"],
-            server_metadata_url=oauth["server_metadata_url"],
-            client_kwargs=oauth["client_kwargs"],
-        )
-        app.add_middleware(
-            OAuthMiddleware,
-            oauth=oauth_module,
-            is_authorized=permissions,
-        )
-        app.add_middleware(SessionMiddleware, secret_key=uuid4().hex)
-    else:
-        permissions = None
-
-    if sentry and sentry.get("enabled", True):
-        import sentry_sdk
-
-        sentry_sdk.init(
-            dsn=sentry.get("dsn", None),
-            traces_sample_rate=sentry.get("traces_sample_rate", None),
-            environment=sentry.get("environment", None),
-        )
-
-    app.map = collected
-    app.grizzlaxy = SimpleNamespace(
-        permissions=permissions,
-    )
-
-    uvicorn.run(
-        app,
-        host=host,
+    gz = Grizzlaxy(
+        root=root,
+        module=module,
         port=port,
-        log_level="info",
-        ssl_keyfile=ssl_keyfile,
-        ssl_certfile=ssl_certfile,
+        host=host,
+        ssl=ssl,
+        oauth=oauth,
+        watch=watch,
+        sentry=sentry,
+        config=config,
     )
+    gz.run()
 
 
 def main(argv=None):
