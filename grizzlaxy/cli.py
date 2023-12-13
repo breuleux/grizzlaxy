@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import importlib
 import json
+import os
 import sys
 from asyncio import Future
 from functools import cached_property
@@ -86,6 +87,8 @@ class Grizzlaxy:
         sentry=None,
         config={},
     ):
+        self.uuid = uuid4().hex
+
         if not ((root is None) ^ (module is None)):
             # xor requires exactly one of the two to be given
             raise UsageError("Either the root or module argument must be provided.")
@@ -185,7 +188,9 @@ class Grizzlaxy:
 
         if self.sentry and self.sentry.get("enabled", True):
             import logging
+
             import sentry_sdk
+
             # Configure sentry to collect log events with minimal level INFO
             # (2023/10/25) https://docs.sentry.io/platforms/python/integrations/logging/
             from sentry_sdk.integrations.logging import LoggingIntegration
@@ -201,9 +206,9 @@ class Grizzlaxy:
                 integrations=[
                     LoggingIntegration(
                         level=_get_level(self.sentry.get("log_level", "")),
-                        event_level=_get_level(self.sentry.get("event_log_level", ""))
+                        event_level=_get_level(self.sentry.get("event_log_level", "")),
                     )
-                ]
+                ],
             )
 
         app.grizzlaxy = SimpleNamespace(
@@ -216,11 +221,17 @@ class Grizzlaxy:
     def inject_reloading_code(self):
         dev_injections.append(
             H.script(
-                """
-                let src = new EventSource("/!!events");
-                src.onmessage = e => {
-                    window.location.reload();
-                }
+                f"""
+                window.addEventListener('load', _ => {{
+                    let src = new EventSource("/!!{self.uuid}/events");
+                    src.onmessage = e => {{
+                        window.location.reload();
+                    }}
+                    $$BEAR.tabs.addButton("⟳", event => {{
+                        fetch("/!!{self.uuid}/reboot");
+                        setTimeout(() => window.location.reload(), 500);
+                    }});
+                }});
                 """
             )
         )
@@ -236,6 +247,9 @@ class Grizzlaxy:
     async def event_source(self, request):
         return EventSourceResponse(JuriggedLooper(self.watcher))
 
+    async def reboot(self, request):
+        os.execv(sys.argv[0], sys.argv)
+
     def set_routes(self):
         if self.root:
             collected = collect_routes(self.root)
@@ -244,7 +258,8 @@ class Grizzlaxy:
 
         routes = compile_routes("/", self.config, collected)
         if self.watch:
-            routes.insert(0, Route("/!!events", self.event_source))
+            routes.insert(0, Route(f"/!!{self.uuid}/events", self.event_source))
+            routes.insert(0, Route(f"/!!{self.uuid}/reboot", self.reboot))
 
         self.app.router.routes = routes
         self.app.map = collected
