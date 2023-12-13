@@ -184,12 +184,26 @@ class Grizzlaxy:
             permissions = None
 
         if self.sentry and self.sentry.get("enabled", True):
+            import logging
             import sentry_sdk
+            # Configure sentry to collect log events with minimal level INFO
+            # (2023/10/25) https://docs.sentry.io/platforms/python/integrations/logging/
+            from sentry_sdk.integrations.logging import LoggingIntegration
+
+            def _get_level(level_name: str) -> int:
+                level = logging.getLevelName(level_name)
+                return level if isinstance(level, int) else logging.INFO
 
             sentry_sdk.init(
                 dsn=self.sentry.get("dsn", None),
                 traces_sample_rate=self.sentry.get("traces_sample_rate", None),
                 environment=self.sentry.get("environment", None),
+                integrations=[
+                    LoggingIntegration(
+                        level=_get_level(self.sentry.get("log_level", "")),
+                        event_level=_get_level(self.sentry.get("event_log_level", ""))
+                    )
+                ]
             )
 
         app.grizzlaxy = SimpleNamespace(
