@@ -1,77 +1,25 @@
 import argparse
-import asyncio
 import importlib
 import json
-import os
 import sys
-from asyncio import Future
-from functools import cached_property
 from pathlib import Path
+from textwrap import dedent
 from types import SimpleNamespace
 from uuid import uuid4
 
 import uvicorn
 from authlib.integrations.starlette_client import OAuth
 from hrepr import H
-from sse_starlette.sse import EventSourceResponse
 from starbear.serve import dev_injections
 from starlette.applications import Starlette
 from starlette.config import Config
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from starlette.routing import Route
 
 from .auth import OAuthMiddleware, PermissionDict, PermissionFile
 from .find import collect_routes, collect_routes_from_module, compile_routes
+from .reload import FullReloader, InertReloader, JuriggedReloader
 from .utils import UsageError, merge, read_configs
-
-
-class JuriggedLooper:
-    def __init__(self, watcher):
-        self.future = None
-        self.watcher = watcher
-        self.watcher.activity.append(self.handle)
-
-    def handle(self):
-        if self.future and not self.future.done():
-            self.future.set_result(True)
-
-    async def __aiter__(self):
-        try:
-            while True:
-                self.future = Future()
-                await self.future
-                await asyncio.sleep(0.05)
-                yield True
-        except asyncio.CancelledError:
-            self.watcher.activity.remove(self.handle)
-
-
-class Watcher:
-    def __init__(self, watch, registry, towatch):
-        from watchdog.observers import Observer
-
-        self.watch = watch
-        self.registry = registry
-        self.towatch = towatch
-        self.activity = []
-
-        self.registry.activity.register(self.handle_jurigged)
-        self.obs = Observer()
-        self.obs.schedule(self, self.watch, recursive=True)
-        self.obs.start()
-
-    def fire(self):
-        for listener in self.activity:
-            listener()
-
-    def handle_jurigged(self, event):
-        if isinstance(event, self.towatch):
-            self.fire()
-
-    def dispatch(self, event):
-        if not event.src_path.endswith(".py"):
-            self.fire()
 
 
 class Grizzlaxy:
@@ -84,33 +32,41 @@ class Grizzlaxy:
         ssl=None,
         oauth=None,
         watch=False,
+        dev=False,
+        reload_mode="jurigged",
         sentry=None,
         config={},
     ):
         self.uuid = uuid4().hex
 
+        if dev and not watch:
+            watch = True
+        if watch:
+            dev = True
+
+        if not dev:
+            self.reloader = InertReloader(self)
+        elif reload_mode == "jurigged":
+            self.reloader = JuriggedReloader(self)
+        else:
+            self.reloader = FullReloader(self)
+
         if not ((root is None) ^ (module is None)):
             # xor requires exactly one of the two to be given
             raise UsageError("Either the root or module argument must be provided.")
 
-        if watch:
-            # Sometimes has to be done before importing the module to watch in order
-            # to properly collect function data
-            import codefind  # noqa: F401
+        self.reloader.prep()
 
         if isinstance(module, str):
             module = importlib.import_module(module)
 
-        if watch:
-            import jurigged
+        if watch is True:
+            if module is not None:
+                watch = Path(module.__file__).parent
+            else:
+                watch = root
 
-            if watch is True:
-                if module is not None:
-                    watch = Path(module.__file__).parent
-                else:
-                    watch = root
-
-            jurigged.watch(str(watch))
+        self.reloader.code_watch(watch, module)
 
         self.root = root
         self.module = module
@@ -119,14 +75,29 @@ class Grizzlaxy:
         self.ssl = ssl
         self.oauth = oauth
         self.watch = watch
+        self.dev = dev
+        self.reload_mode = reload_mode
         self.sentry = sentry
         self.config = config
+        self.config["$dev"] = dev
 
         self.setup()
 
     def setup(self):
-        if self.watch:
-            self.inject_reloading_code()
+        code = self.reloader.browser_side_code()
+        if code:
+            dev_injections.append(
+                H.script(
+                    dedent(
+                        f"""
+                        window.addEventListener("load", () => {{
+                            console.log("loaded");
+                            {dedent(code)}
+                        }});
+                        """
+                    )
+                )
+            )
 
         app = Starlette(routes=[])
 
@@ -218,38 +189,6 @@ class Grizzlaxy:
         self.app = app
         self.set_routes()
 
-    def inject_reloading_code(self):
-        dev_injections.append(
-            H.script(
-                f"""
-                window.addEventListener('load', _ => {{
-                    let src = new EventSource("/!!{self.uuid}/events");
-                    src.onmessage = e => {{
-                        window.location.reload();
-                    }}
-                    $$BEAR.tabs.addButton("⟳", event => {{
-                        fetch("/!!{self.uuid}/reboot");
-                        setTimeout(() => window.location.reload(), 500);
-                    }});
-                }});
-                """
-            )
-        )
-        self.watcher.activity.append(self.set_routes)
-
-    @cached_property
-    def watcher(self):
-        from jurigged.codetools import CodeFileOperation
-        from jurigged.register import registry
-
-        return Watcher(self.watch, registry, CodeFileOperation)
-
-    async def event_source(self, request):
-        return EventSourceResponse(JuriggedLooper(self.watcher))
-
-    async def reboot(self, request):
-        os.execv(sys.argv[0], sys.argv)
-
     def set_routes(self):
         if self.root:
             collected = collect_routes(self.root)
@@ -257,9 +196,8 @@ class Grizzlaxy:
             collected = collect_routes_from_module(self.module)
 
         routes = compile_routes("/", self.config, collected)
-        if self.watch:
-            routes.insert(0, Route(f"/!!{self.uuid}/events", self.event_source))
-            routes.insert(0, Route(f"/!!{self.uuid}/reboot", self.reboot))
+
+        self.reloader.inject_routes(routes)
 
         self.app.router.routes = routes
         self.app.map = collected
@@ -284,6 +222,8 @@ def grizzlaxy(
     oauth=None,
     watch=False,
     sentry=None,
+    dev=False,
+    reload_mode="jurigged",
     config={},
 ):
     gz = Grizzlaxy(
@@ -295,6 +235,8 @@ def grizzlaxy(
         oauth=oauth,
         watch=watch,
         sentry=sentry,
+        dev=dev,
+        reload_mode=reload_mode,
         config=config,
     )
     gz.run()
@@ -336,6 +278,16 @@ def main(argv=None):
         help="Automatically hot-reload the code",
     )
     parser.add_argument(
+        "--dev",
+        action=argparse.BooleanOptionalAction,
+        help="Run in development mode",
+    )
+    parser.add_argument(
+        "--reload-mode",
+        choices=["jurigged", "full"],
+        help="Reloading methodology",
+    )
+    parser.add_argument(
         "--watch",
         type=str,
         help="Path to watch for changes with jurigged",
@@ -357,6 +309,8 @@ def main(argv=None):
             "oauth": {},
             "sentry": {},
             "watch": None,
+            "dev": False,
+            "reload_mode": "jurigged",
         }
     }
 
@@ -365,7 +319,7 @@ def main(argv=None):
 
     gconfig = config["grizzlaxy"]
 
-    for field in ("root", "module", "port", "host", "watch"):
+    for field in ("root", "module", "port", "host", "watch", "dev", "reload_mode"):
         value = getattr(options, field)
         if value is not None:
             gconfig[field] = value
