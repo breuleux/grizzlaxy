@@ -37,8 +37,6 @@ class Grizzlaxy:
         sentry=None,
         config={},
     ):
-        self.uuid = uuid4().hex
-
         if dev and not watch:
             watch = True
         if watch:
@@ -89,10 +87,8 @@ class Grizzlaxy:
             dev_injections.append(
                 H.script(
                     dedent(
-                        f"""
-                        window.addEventListener("load", () => {{
-                            console.log("loaded");
-                            {dedent(code)}
+                        f"""window.addEventListener("load", () => {{
+                        {code}
                         }});
                         """
                     )

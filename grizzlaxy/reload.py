@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 from asyncio import Future
+from uuid import uuid4
 
 from sse_starlette.sse import EventSourceResponse
 from starlette.routing import Route
@@ -39,7 +40,7 @@ async def autofire():
 class InertReloader:
     def __init__(self, gz):
         self.gz = gz
-        self.uuid = gz.uuid
+        self.uuid = uuid4().hex
         self.activity = []
         self.has_fired = False
 
@@ -48,9 +49,6 @@ class InertReloader:
 
     def code_watch(self, watch, module):
         pass
-
-    def mangle(self, name):
-        return f"${name}${self.uuid}"
 
     def browser_side_code(self):
         return None
@@ -62,12 +60,12 @@ class InertReloader:
 class BaseReloader(InertReloader):
     def browser_side_code(self):
         return f"""
-        let {self.mangle('src')} = new EventSource("/!!{self.uuid}/events");
-        function {self.mangle('reboot')}() {{
+        let src = new EventSource("/!!{self.uuid}/events");
+        function reboot() {{
             fetch("/!!{self.uuid}/reboot");
             setTimeout(() => window.location.reload(), 500);
         }}
-        $$BEAR.tabs.addButton("⟳", {self.mangle('reboot')});
+        $$BEAR.tabs.addButton("⟳", reboot);
         """
 
     def code_watch(self, watch, module):
@@ -125,10 +123,10 @@ class JuriggedReloader(BaseReloader):
         code = super().browser_side_code()
         return (
             code
-            + f"""
-        {self.mangle('src')}.onmessage = e => {{
+            + """
+        src.onmessage = e => {
             window.location.reload();
-        }};
+        };
         """
         )
 
@@ -155,7 +153,7 @@ class FullReloader(BaseReloader):
         code = super().browser_side_code()
         return (
             code
-            + f"""
-        {self.mangle('src')}.onmessage = {self.mangle('reboot')};
+            + """
+        src.onmessage = reboot;
         """
         )
