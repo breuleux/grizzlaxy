@@ -212,32 +212,8 @@ class Grizzlaxy:
             debug_mode.reset(token)
 
 
-def grizzlaxy(
-    root=None,
-    module=None,
-    port=None,
-    host=None,
-    ssl=None,
-    oauth=None,
-    watch=False,
-    sentry=None,
-    dev=False,
-    reload_mode="jurigged",
-    config={},
-):
-    gz = Grizzlaxy(
-        root=root,
-        module=module,
-        port=port,
-        host=host,
-        ssl=ssl,
-        oauth=oauth,
-        watch=watch,
-        sentry=sentry,
-        dev=dev,
-        reload_mode=reload_mode,
-        config=config,
-    )
+def grizzlaxy(**kwargs):
+    gz = Grizzlaxy(**kwargs)
     gz.run()
 
 
