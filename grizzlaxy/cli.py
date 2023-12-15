@@ -10,7 +10,7 @@ from uuid import uuid4
 import uvicorn
 from authlib.integrations.starlette_client import OAuth
 from hrepr import H
-from starbear.serve import dev_injections
+from starbear.serve import debug_mode, dev_injections
 from starlette.applications import Starlette
 from starlette.config import Config
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
@@ -77,7 +77,6 @@ class Grizzlaxy:
         self.reload_mode = reload_mode
         self.sentry = sentry
         self.config = config
-        self.config["$dev"] = dev
 
         self.setup()
 
@@ -199,14 +198,18 @@ class Grizzlaxy:
         self.app.map = collected
 
     def run(self):
-        uvicorn.run(
-            self.app,
-            host=self.host,
-            port=self.port,
-            log_level="info",
-            ssl_keyfile=self.ssl_keyfile,
-            ssl_certfile=self.ssl_certfile,
-        )
+        token = debug_mode.set(self.dev)
+        try:
+            uvicorn.run(
+                self.app,
+                host=self.host,
+                port=self.port,
+                log_level="info",
+                ssl_keyfile=self.ssl_keyfile,
+                ssl_certfile=self.ssl_certfile,
+            )
+        finally:
+            debug_mode.reset(token)
 
 
 def grizzlaxy(

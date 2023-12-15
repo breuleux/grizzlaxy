@@ -82,8 +82,6 @@ def compile_routes(path, config, routes: dict):
 
 @ovld
 def compile_routes(path, config, mb: AbstractBear):  # noqa: F811
-    if hasattr(mb, "cub_params"):
-        mb.cub_params["debug"] = config.get("$dev", False)
     return _mount(path, mb.routes())
 
 
