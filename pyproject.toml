@@ -11,7 +11,7 @@ python = "^3.9"
 authlib = "^1.2.0"
 httpx = "^0.24.1"
 itsdangerous = "^2.1.2"
-starbear = ">=0.0.12"
+starbear = "^0.1.0"
 ovld = "^0.3.2"
 jurigged = "^0.5.5"
 pyyaml = {version = "^6.0.1", optional = true}
