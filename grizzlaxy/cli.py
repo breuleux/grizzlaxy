@@ -2,13 +2,16 @@ import argparse
 import importlib
 import json
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 from textwrap import dedent
 from types import SimpleNamespace
 from uuid import uuid4
 
+import gifnoc
 import uvicorn
 from authlib.integrations.starlette_client import OAuth
+
 from hrepr import H
 from starbear.serve import debug_mode, dev_injections
 from starlette.applications import Starlette
@@ -19,24 +22,79 @@ from starlette.middleware.sessions import SessionMiddleware
 from .auth import OAuthMiddleware, PermissionDict, PermissionFile
 from .find import collect_routes, collect_routes_from_module, compile_routes
 from .reload import FullReloader, InertReloader, JuriggedReloader
-from .utils import UsageError, merge, read_configs
+from .utils import UsageError
+
+
+@dataclass
+class GrizzlaxySSLConfig:
+    # Whether SSL is enabled
+    enabled: bool = True
+    # SSL key file
+    keyfile: Path = None
+    # SSL certificate file
+    certfile: Path = None
+
+
+@dataclass
+class GrizzlaxyOAuthConfig:
+    # Whether OAuth is enabled
+    enabled: bool = True
+    # Permissions file
+    permissions: Path = None
+    name: str = None
+    server_metadata_url: str = None
+    client_kwargs: dict = field(default_factory=dict)
+    environ: dict = field(default_factory=dict)
+
+
+@dataclass
+class GrizzlaxySentryConfig:
+    # Whether Sentry is enabled
+    enabled: bool = True
+    dsn: str = None
+    traces_sample_rate: float = None
+    environment: str = None
+    log_level: str = None
+    event_log_level: str = None
+
+
+@dataclass
+class GrizzlaxyConfig:
+    # Directory or script
+    root: str = None
+    # Name of the module to run
+    module: str = None
+    # Port to serve from
+    port: int = 8000
+    # Hostname to serve from
+    host: str = "127.0.0.1"
+    # Path to watch for changes with jurigged
+    watch: str | bool = None
+    # Run in development mode
+    dev: bool = False
+    # Reloading methodology
+    reload_mode: str = "jurigged"
+    ssl: GrizzlaxySSLConfig = None
+    oauth: GrizzlaxyOAuthConfig = None
+    sentry: GrizzlaxySentryConfig = None
+
+
+gzconfig = gifnoc.define(field="grizzlaxy", model=GrizzlaxyConfig)
 
 
 class Grizzlaxy:
-    def __init__(
-        self,
-        root=None,
-        module=None,
-        port=None,
-        host=None,
-        ssl=None,
-        oauth=None,
-        watch=False,
-        dev=False,
-        reload_mode="jurigged",
-        sentry=None,
-        config={},
-    ):
+    def __init__(self, config):
+        root = config.root
+        module = config.module
+        port = config.port
+        host = config.host
+        ssl = config.ssl
+        oauth = config.oauth
+        watch = config.watch
+        dev = config.dev
+        reload_mode = config.reload_mode
+        sentry = config.sentry
+
         if dev and not watch:
             watch = True
         if watch:
@@ -76,7 +134,6 @@ class Grizzlaxy:
         self.dev = dev
         self.reload_mode = reload_mode
         self.sentry = sentry
-        self.config = config
 
         self.setup()
 
@@ -103,16 +160,16 @@ class Grizzlaxy:
                 raise FileNotFoundError(filename)
             return filename
 
-        ssl_enabled = self.ssl.get("enabled", True)
-        self.ssl_keyfile = _ensure(self.ssl.get("keyfile", None), ssl_enabled)
-        self.ssl_certfile = _ensure(self.ssl.get("certfile", None), ssl_enabled)
+        ssl_enabled = self.ssl.enabled
+        self.ssl_keyfile = _ensure(self.ssl.keyfile, ssl_enabled)
+        self.ssl_certfile = _ensure(self.ssl.certfile, ssl_enabled)
 
         if ssl_enabled and self.ssl_certfile and self.ssl_keyfile:
             # This doesn't seem to do anything?
             app.add_middleware(HTTPSRedirectMiddleware)
 
-        if self.oauth and self.oauth.get("enabled", True):
-            permissions = self.oauth.get("permissions", None)
+        if self.oauth and self.oauth.enabled and self.oauth.name:
+            permissions = self.oauth.permissions
             if permissions:
                 if isinstance(permissions, str):
                     permissions = Path(permissions)
@@ -133,15 +190,12 @@ class Grizzlaxy:
                 def permissions(user, path):
                     return True
 
-            oauth_config = Config(
-                environ=self.oauth.get("environ", {}),
-                env_file=self.oauth.get("secrets_file", None),
-            )
+            oauth_config = Config(environ=self.oauth.environ)
             oauth_module = OAuth(oauth_config)
             oauth_module.register(
-                name=self.oauth["name"],
-                server_metadata_url=self.oauth["server_metadata_url"],
-                client_kwargs=self.oauth["client_kwargs"],
+                name=self.oauth.name,
+                server_metadata_url=self.oauth.server_metadata_url,
+                client_kwargs=self.oauth.client_kwargs,
             )
             app.add_middleware(
                 OAuthMiddleware,
@@ -190,7 +244,7 @@ class Grizzlaxy:
         elif self.module:
             collected = collect_routes_from_module(self.module)
 
-        routes = compile_routes("/", self.config, collected)
+        routes = compile_routes("/", collected)
 
         self.reloader.inject_routes(routes)
 
@@ -212,125 +266,36 @@ class Grizzlaxy:
             debug_mode.reset(token)
 
 
-def grizzlaxy(**kwargs):
-    gz = Grizzlaxy(**kwargs)
+def grizzlaxy(config=None, **kwargs):
+    if config is None:
+        assert not kwargs
+        config = GrizzlaxyConfig(**kwargs)
+    gz = Grizzlaxy(config)
     gz.run()
 
 
 def main(argv=None):
-    if argv is None:
-        argv = sys.argv
-
-    parser = argparse.ArgumentParser(description="Start a grizzlaxy of starbears.")
-
-    parser.add_argument(
-        "root", nargs="?", metavar="ROOT", help="Directory or script", default=None
-    )
-    parser.add_argument(
-        "--module", "-m", metavar="MODULE", help="Directory or script", default=None
-    )
-    parser.add_argument(
-        "--config",
-        "-C",
-        metavar="CONFIG",
-        action="append",
-        help="Configuration file(s)",
-        default=None,
-    )
-    parser.add_argument("--port", type=int, help="Port to serve on", default=None)
-    parser.add_argument("--host", type=str, help="Hostname", default=None)
-    parser.add_argument(
-        "--permissions", type=str, help="Permissions file", default=None
-    )
-    parser.add_argument("--secrets", type=str, help="Secrets file", default=None)
-    parser.add_argument("--ssl-keyfile", type=str, help="SSL key file", default=None)
-    parser.add_argument(
-        "--ssl-certfile", type=str, help="SSL certificate file", default=None
-    )
-    parser.add_argument(
-        "--hot",
-        action=argparse.BooleanOptionalAction,
-        help="Automatically hot-reload the code",
-    )
-    parser.add_argument(
-        "--dev",
-        action=argparse.BooleanOptionalAction,
-        help="Run in development mode",
-    )
-    parser.add_argument(
-        "--reload-mode",
-        choices=["jurigged", "full"],
-        help="Reloading methodology",
-    )
-    parser.add_argument(
-        "--watch",
-        type=str,
-        help="Path to watch for changes with jurigged",
-    )
-
-    options = parser.parse_args(argv[1:])
-
-    ##############################
-    # Populate the configuration #
-    ##############################
-
-    config = {
-        "grizzlaxy": {
-            "root": None,
-            "module": None,
-            "port": 8000,
-            "host": "127.0.0.1",
-            "ssl": {},
-            "oauth": {},
-            "sentry": {},
-            "watch": None,
-            "dev": False,
-            "reload_mode": "jurigged",
-        }
-    }
-
-    if options.config:
-        config = merge(config, read_configs(*options.config))
-
-    gconfig = config["grizzlaxy"]
-
-    for field in ("root", "module", "port", "host", "watch", "dev", "reload_mode"):
-        value = getattr(options, field)
-        if value is not None:
-            gconfig[field] = value
-
-    if options.hot and not config["watch"]:
-        gconfig["watch"] = True
-    if options.hot is False:
-        gconfig["watch"] = None
-
-    # TODO: remove this option
-    if options.secrets:
-        gconfig["oauth"] = {
-            "name": "google",
-            "server_metadata_url": "https://accounts.google.com/.well-known/openid-configuration",
-            "client_kwargs": {
-                "scope": "openid email profile",
-                "prompt": "select_account",
-            },
-            "secrets_file": options.secrets,
-        }
-    if options.permissions:
-        gconfig["oauth"]["permissions"] = options.permissions
-
-    if options.ssl_keyfile:
-        gconfig["ssl"]["keyfile"] = options.ssl_keyfile
-    if options.ssl_certfile:
-        gconfig["ssl"]["certfile"] = options.ssl_certfile
-
-    #################
-    # Run grizzlaxy #
-    #################
-
-    try:
-        del config["grizzlaxy"]
-        grizzlaxy(**gconfig, config=config)
-    except UsageError as exc:
-        exit(f"ERROR: {exc}")
-    except FileNotFoundError as exc:
-        exit(f"ERROR: File not found: {exc}")
+    with gifnoc.gifnoc(
+        argparser=argparse.ArgumentParser(
+            description="Start a grizzlaxy of starbears."
+        ),
+        option_map={
+            "--root": "grizzlaxy.root",
+            "--module,-m": "grizzlaxy.module",
+            "--port": "grizzlaxy.port",
+            "--host": "grizzlaxy.host",
+            "--permissions": "grizzlaxy.oauth.permissions",
+            "--ssl-keyfile": "grizzlaxy.ssl.keyfile",
+            "--ssl-certfile": "grizzlaxy.ssl.certfile",
+            "--dev": "grizzlaxy.dev",
+            "--reload-mode": "grizzlaxy.reload_mode",
+            "--watch": "grizzlaxy.watch",
+        },
+        argv=sys.argv[1:] if argv is None else argv,
+    ):
+        try:
+            grizzlaxy(gzconfig)
+        except UsageError as exc:
+            exit(f"ERROR: {exc}")
+        except FileNotFoundError as exc:
+            exit(f"ERROR: File not found: {exc}")
