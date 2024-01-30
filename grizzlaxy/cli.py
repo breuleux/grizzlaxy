@@ -11,7 +11,6 @@ from uuid import uuid4
 import gifnoc
 import uvicorn
 from authlib.integrations.starlette_client import OAuth
-
 from hrepr import H
 from starbear.serve import debug_mode, dev_injections
 from starlette.applications import Starlette
@@ -206,7 +205,7 @@ class Grizzlaxy:
         else:
             permissions = None
 
-        if self.sentry and self.sentry.get("enabled", True):
+        if self.sentry and self.sentry.enabled:
             import logging
 
             import sentry_sdk
@@ -220,13 +219,13 @@ class Grizzlaxy:
                 return level if isinstance(level, int) else logging.INFO
 
             sentry_sdk.init(
-                dsn=self.sentry.get("dsn", None),
-                traces_sample_rate=self.sentry.get("traces_sample_rate", None),
-                environment=self.sentry.get("environment", None),
+                dsn=self.sentry.dsn,
+                traces_sample_rate=self.sentry.traces_sample_rate,
+                environment=self.sentry.environment,
                 integrations=[
                     LoggingIntegration(
-                        level=_get_level(self.sentry.get("log_level", "")),
-                        event_level=_get_level(self.sentry.get("event_log_level", "")),
+                        level=_get_level(self.sentry.log_level or ""),
+                        event_level=_get_level(self.sentry.event_log_level or ""),
                     )
                 ],
             )
@@ -268,7 +267,6 @@ class Grizzlaxy:
 
 def grizzlaxy(config=None, **kwargs):
     if config is None:
-        assert not kwargs
         config = GrizzlaxyConfig(**kwargs)
     gz = Grizzlaxy(config)
     gz.run()
