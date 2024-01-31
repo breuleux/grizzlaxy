@@ -11,11 +11,14 @@ class UsageError(Exception):
 
 
 class ConfigFile:
-    def __init__(self, file):
+    def __init__(self, file, defaults=None):
         self.dict = None
         self.file = file
         if not self.file.exists():
-            raise FileNotFoundError(self.file)
+            if defaults is None:
+                raise FileNotFoundError(self.file)
+            else:
+                self.write(defaults)
         self.reset()
 
     def reset(self):
@@ -25,11 +28,16 @@ class ConfigFile:
         return self.file.read_text()
 
     def write(self, new_content, dry=False):
+        if not isinstance(new_content, str):
+            new_content = self.unparse(new_content)
         if dry:
             # Check that the new content is valid
             self.parse(new_content)
         else:
-            previous = self.read()
+            if self.file.exists():
+                previous = self.read()
+            else:
+                previous = self.unparse({})
             self.file.write_text(new_content)
             try:
                 self.reset()
@@ -44,12 +52,20 @@ class JSONFile(ConfigFile):
     def parse(self, content):
         return json.loads(content)
 
+    def unparse(self, data):
+        return json.dumps(data)
+
 
 class YAMLFile(ConfigFile):
     def parse(self, content):
         import yaml
 
         return yaml.safe_load(content)
+
+    def unparse(self, data):
+        import yaml
+
+        return yaml.safe_dump(data)
 
 
 extensions_map = {
@@ -120,14 +136,14 @@ def absolutize_paths(obj: object, dir: Path):  # noqa: F811
     return obj
 
 
-def make_config(config_file):
+def make_config(config_file, defaults=None):
     config_file = Path(config_file)
     suffix = config_file.suffix
     cls = extensions_map.get(suffix, None)
     if cls is None:
         raise UsageError(f"Unknown config file extension: {suffix}")
     else:
-        return cls(config_file)
+        return cls(config_file, defaults=defaults)
 
 
 def parse_config():

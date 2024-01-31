@@ -53,8 +53,8 @@ class PermissionDict:
 
 
 class PermissionFile(PermissionDict):
-    def __init__(self, permissions_file):
-        self.file = make_config(permissions_file)
+    def __init__(self, permissions_file, defaults=None):
+        self.file = make_config(permissions_file, defaults=defaults)
         super().__init__(self.file.dict)
 
     def reset(self):

@@ -40,6 +40,7 @@ class GrizzlaxyOAuthConfig:
     enabled: bool = True
     # Permissions file
     permissions: Path = None
+    default_permissions: dict = None
     name: str = None
     server_metadata_url: str = None
     client_kwargs: dict = field(default_factory=dict)
@@ -174,7 +175,9 @@ class Grizzlaxy:
                     permissions = Path(permissions)
                 if isinstance(permissions, Path):
                     try:
-                        permissions = PermissionFile(permissions)
+                        permissions = PermissionFile(
+                            permissions, defaults=self.oauth.default_permissions
+                        )
                     except json.JSONDecodeError as exc:
                         sys.exit(
                             f"ERROR decoding JSON: {exc}\n"
