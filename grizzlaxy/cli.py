@@ -11,6 +11,7 @@ from uuid import uuid4
 import gifnoc
 import uvicorn
 from authlib.integrations.starlette_client import OAuth
+from gifnoc import Command, Option
 from hrepr import H
 from starbear.serve import debug_mode, dev_injections
 from starlette.applications import Starlette
@@ -27,7 +28,7 @@ from .utils import UsageError
 @dataclass
 class GrizzlaxySSLConfig:
     # Whether SSL is enabled
-    enabled: bool = True
+    enabled: bool = False
     # SSL key file
     keyfile: Path = None
     # SSL certificate file
@@ -37,7 +38,7 @@ class GrizzlaxySSLConfig:
 @dataclass
 class GrizzlaxyOAuthConfig:
     # Whether OAuth is enabled
-    enabled: bool = True
+    enabled: bool = False
     # Permissions file
     permissions: Path = None
     default_permissions: dict = None
@@ -50,7 +51,7 @@ class GrizzlaxyOAuthConfig:
 @dataclass
 class GrizzlaxySentryConfig:
     # Whether Sentry is enabled
-    enabled: bool = True
+    enabled: bool = False
     dsn: str = None
     traces_sample_rate: float = None
     environment: str = None
@@ -74,9 +75,9 @@ class GrizzlaxyConfig:
     dev: bool = False
     # Reloading methodology
     reload_mode: str = "jurigged"
-    ssl: GrizzlaxySSLConfig = None
-    oauth: GrizzlaxyOAuthConfig = None
-    sentry: GrizzlaxySentryConfig = None
+    ssl: GrizzlaxySSLConfig = field(default_factory=GrizzlaxySSLConfig)
+    oauth: GrizzlaxyOAuthConfig = field(default_factory=GrizzlaxyOAuthConfig)
+    sentry: GrizzlaxySentryConfig = field(default_factory=GrizzlaxySentryConfig)
 
 
 gzconfig = gifnoc.define(field="grizzlaxy", model=GrizzlaxyConfig)
@@ -276,22 +277,25 @@ def grizzlaxy(config=None, **kwargs):
 
 
 def main(argv=None):
-    with gifnoc.gifnoc(
+    with gifnoc.cli(
         argparser=argparse.ArgumentParser(
             description="Start a grizzlaxy of starbears."
         ),
-        option_map={
-            "--root": "grizzlaxy.root",
-            "--module,-m": "grizzlaxy.module",
-            "--port": "grizzlaxy.port",
-            "--host": "grizzlaxy.host",
-            "--permissions": "grizzlaxy.oauth.permissions",
-            "--ssl-keyfile": "grizzlaxy.ssl.keyfile",
-            "--ssl-certfile": "grizzlaxy.ssl.certfile",
-            "--dev": "grizzlaxy.dev",
-            "--reload-mode": "grizzlaxy.reload_mode",
-            "--watch": "grizzlaxy.watch",
-        },
+        options=Command(
+            mount="grizzlaxy",
+            options={
+                ".root": "--root",
+                ".module": Option(aliases=["-m"]),
+                ".port": "--port",
+                ".host": "--host",
+                ".oauth.permissions": "--permissions",
+                ".ssl.keyfile": "--ssl-keyfile",
+                ".ssl.certfile": "--ssl-certfile",
+                ".dev": "--dev",
+                ".reload_mode": "--reload-mode",
+                ".watch": "--watch",
+            },
+        ),
         argv=sys.argv[1:] if argv is None else argv,
     ):
         try:
