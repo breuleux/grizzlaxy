@@ -286,7 +286,7 @@ def main(argv=None):
             options={
                 ".root": "--root",
                 ".module": Option(aliases=["-m"]),
-                ".port": "--port",
+                ".port": Option(aliases=["-p"]),
                 ".host": "--host",
                 ".oauth.permissions": "--permissions",
                 ".ssl.keyfile": "--ssl-keyfile",
