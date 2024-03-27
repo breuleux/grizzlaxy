@@ -376,13 +376,13 @@ all = ["email-validator (>=2.0.0)", "httpx (>=0.23.0)", "itsdangerous (>=1.1.0)"
 
 [[package]]
 name = "gifnoc"
-version = "0.2.0"
+version = "0.2.1"
 description = "Handle configuration for multiple libraries"
 optional = false
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "gifnoc-0.2.0-py3-none-any.whl", hash = "sha256:e9a929048be3bd0b2d23933024c892580e9c62df103da4d31472765cbd880943"},
-    {file = "gifnoc-0.2.0.tar.gz", hash = "sha256:23f06ed91e66084905ce59a50e092295a1244edbad0a84d3e55ae829ac66567d"},
+    {file = "gifnoc-0.2.1-py3-none-any.whl", hash = "sha256:f44bfc2cc4e037d7d9b9f4eb16b499d2c7ca0efab6f1a80de8f8490f832ba22f"},
+    {file = "gifnoc-0.2.1.tar.gz", hash = "sha256:8c828e06b644119b3f74ae9477a27cb31416dde83d0d798aa95e7a2bbc0e2c1c"},
 ]
 
 [package.dependencies]
@@ -966,13 +966,13 @@ uvicorn = "*"
 
 [[package]]
 name = "starbear"
-version = "0.1.1"
+version = "0.1.2"
 description = "Framework for easy small local web apps or programs"
 optional = false
-python-versions = ">=3.9,<4.0"
+python-versions = "<4.0,>=3.9"
 files = [
-    {file = "starbear-0.1.1-py3-none-any.whl", hash = "sha256:cc03399dfaa155c3e4371cfd3c83fad50dad0061b7930aa81d312a4f4cb7c65f"},
-    {file = "starbear-0.1.1.tar.gz", hash = "sha256:f96eae8f2f55644b9c270cf4c8e869d5db2096036ca4a64087f5f6dc1270d2f7"},
+    {file = "starbear-0.1.2-py3-none-any.whl", hash = "sha256:439b6cc38f2c737a52a3906f6372e948a74059013ca5bed3aec7dab5eb32110e"},
+    {file = "starbear-0.1.2.tar.gz", hash = "sha256:30eac289b449dd9d05c47f55b80caa4f49fa23c8d1d267596c264f43794b11c3"},
 ]
 
 [package.dependencies]
@@ -1195,4 +1195,4 @@ yaml = ["pyyaml"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "2b0be3bed380c8256f58aa21ddd01f59b85b3559d089733e57cbedcf25263c87"
+content-hash = "0297999787c0ce9c166d2588bd0b22e9ad3b5fb920b297ece9ae84bcf47d06ef"
