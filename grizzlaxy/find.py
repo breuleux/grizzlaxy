@@ -86,6 +86,8 @@ def compile_routes(path, mb: AbstractBear):  # noqa: F811
 @ovld
 def compile_routes(path, obj: object):  # noqa: F811
     if callable(obj):
-        return [Route(path, obj)]
+        cls = getattr(obj, "route_class", Route)
+        route_parameters = getattr(obj, "route_parameters", {})
+        return [cls(path, obj, **route_parameters)]
     else:
         raise TypeError(f"Cannot compile route for {path}: {obj}")

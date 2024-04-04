@@ -4,6 +4,7 @@ from functools import reduce
 from pathlib import Path
 
 from ovld import ovld
+from starlette.routing import Route
 
 
 class UsageError(Exception):
@@ -175,3 +176,12 @@ def here(depth=1):
     fr = sys._getframe(depth)
     filename = fr.f_code.co_filename
     return Path(filename).parent
+
+
+def simple_route(*, route_class=Route, **kwargs):
+    def wrap(fn):
+        fn.route_class = route_class
+        fn.route_parameters = kwargs
+        return fn
+
+    return wrap
