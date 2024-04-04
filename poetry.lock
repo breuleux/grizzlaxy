@@ -357,18 +357,18 @@ test = ["pytest (>=6)"]
 
 [[package]]
 name = "fastapi"
-version = "0.110.0"
+version = "0.110.1"
 description = "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "fastapi-0.110.0-py3-none-any.whl", hash = "sha256:87a1f6fb632a218222c5984be540055346a8f5d8a68e8f6fb647b1dc9934de4b"},
-    {file = "fastapi-0.110.0.tar.gz", hash = "sha256:266775f0dcc95af9d3ef39bad55cff525329a931d5fd51930aadd4f428bf7ff3"},
+    {file = "fastapi-0.110.1-py3-none-any.whl", hash = "sha256:5df913203c482f820d31f48e635e022f8cbfe7350e4830ef05a3163925b1addc"},
+    {file = "fastapi-0.110.1.tar.gz", hash = "sha256:6feac43ec359dfe4f45b2c18ec8c94edb8dc2dfc461d417d9e626590c071baad"},
 ]
 
 [package.dependencies]
 pydantic = ">=1.7.4,<1.8 || >1.8,<1.8.1 || >1.8.1,<2.0.0 || >2.0.0,<2.0.1 || >2.0.1,<2.1.0 || >2.1.0,<3.0.0"
-starlette = ">=0.36.3,<0.37.0"
+starlette = ">=0.37.2,<0.38.0"
 typing-extensions = ">=4.8.0"
 
 [package.extras]
@@ -376,13 +376,13 @@ all = ["email-validator (>=2.0.0)", "httpx (>=0.23.0)", "itsdangerous (>=1.1.0)"
 
 [[package]]
 name = "gifnoc"
-version = "0.2.1"
+version = "0.3.0"
 description = "Handle configuration for multiple libraries"
 optional = false
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "gifnoc-0.2.1-py3-none-any.whl", hash = "sha256:f44bfc2cc4e037d7d9b9f4eb16b499d2c7ca0efab6f1a80de8f8490f832ba22f"},
-    {file = "gifnoc-0.2.1.tar.gz", hash = "sha256:8c828e06b644119b3f74ae9477a27cb31416dde83d0d798aa95e7a2bbc0e2c1c"},
+    {file = "gifnoc-0.3.0-py3-none-any.whl", hash = "sha256:9c78e4760ade0f82390b0ead76023499382bfb6e0cb2c7ce39c7a9b3be3de9c6"},
+    {file = "gifnoc-0.3.0.tar.gz", hash = "sha256:947287cad34e0994fe149337ccf4264d38be876db21da5f44fc5dee179de0561"},
 ]
 
 [package.dependencies]
@@ -683,13 +683,13 @@ test = ["appdirs (==1.4.4)", "covdefaults (>=2.3)", "pytest (>=7.4.3)", "pytest-
 
 [[package]]
 name = "pycparser"
-version = "2.21"
+version = "2.22"
 description = "C parser in Python"
 optional = false
-python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
+python-versions = ">=3.8"
 files = [
-    {file = "pycparser-2.21-py2.py3-none-any.whl", hash = "sha256:8ee45429555515e1f6b185e78100aea234072576aa43ab53aefcae078162fca9"},
-    {file = "pycparser-2.21.tar.gz", hash = "sha256:e644fdec12f7872f86c58ff790da456218b10f863970249516d60a5eaca77206"},
+    {file = "pycparser-2.22-py3-none-any.whl", hash = "sha256:c3702b6d3dd8c7abc1afa565d7e63d53a1d0bd86cdc24edd75470f4de499cfcc"},
+    {file = "pycparser-2.22.tar.gz", hash = "sha256:491c8be9c040f5390f5bf44a5b07752bd07f56edf992381b05c701439eec10f6"},
 ]
 
 [[package]]
@@ -879,13 +879,13 @@ files = [
 
 [[package]]
 name = "sentry-sdk"
-version = "1.43.0"
+version = "1.44.1"
 description = "Python client for Sentry (https://sentry.io)"
 optional = true
 python-versions = "*"
 files = [
-    {file = "sentry-sdk-1.43.0.tar.gz", hash = "sha256:41df73af89d22921d8733714fb0fc5586c3461907e06688e6537d01a27e0e0f6"},
-    {file = "sentry_sdk-1.43.0-py2.py3-none-any.whl", hash = "sha256:8d768724839ca18d7b4c7463ef7528c40b7aa2bfbf7fe554d5f9a7c044acfd36"},
+    {file = "sentry-sdk-1.44.1.tar.gz", hash = "sha256:24e6a53eeabffd2f95d952aa35ca52f0f4201d17f820ac9d3ff7244c665aaf68"},
+    {file = "sentry_sdk-1.44.1-py2.py3-none-any.whl", hash = "sha256:5f75eb91d8ab6037c754a87b8501cc581b2827e923682f593bed3539ce5b3999"},
 ]
 
 [package.dependencies]
@@ -966,13 +966,13 @@ uvicorn = "*"
 
 [[package]]
 name = "starbear"
-version = "0.1.2"
+version = "0.1.3"
 description = "Framework for easy small local web apps or programs"
 optional = false
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "starbear-0.1.2-py3-none-any.whl", hash = "sha256:439b6cc38f2c737a52a3906f6372e948a74059013ca5bed3aec7dab5eb32110e"},
-    {file = "starbear-0.1.2.tar.gz", hash = "sha256:30eac289b449dd9d05c47f55b80caa4f49fa23c8d1d267596c264f43794b11c3"},
+    {file = "starbear-0.1.3-py3-none-any.whl", hash = "sha256:18de7c3c341436707b33405d1403e714ecab9c69d1dd4c6117f56dd6fb07214f"},
+    {file = "starbear-0.1.3.tar.gz", hash = "sha256:0661cf4d5b275d582d063491070eccc2be7a82419128c6fc347f23458cdfef29"},
 ]
 
 [package.dependencies]
@@ -984,13 +984,13 @@ websockets = ">=10.3,<11.0"
 
 [[package]]
 name = "starlette"
-version = "0.36.3"
+version = "0.37.2"
 description = "The little ASGI library that shines."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "starlette-0.36.3-py3-none-any.whl", hash = "sha256:13d429aa93a61dc40bf503e8c801db1f1bca3dc706b10ef2434a36123568f044"},
-    {file = "starlette-0.36.3.tar.gz", hash = "sha256:90a671733cfb35771d8cc605e0b679d23b992f8dcfad48cc60b38cb29aeb7080"},
+    {file = "starlette-0.37.2-py3-none-any.whl", hash = "sha256:6fe59f29268538e5d0d182f2791a479a0c64638e6935d1c6989e63fb2699c6ee"},
+    {file = "starlette-0.37.2.tar.gz", hash = "sha256:9af890290133b79fc3db55474ade20f6220a364a0402e0b556e7cd5e1e093823"},
 ]
 
 [package.dependencies]
@@ -1195,4 +1195,4 @@ yaml = ["pyyaml"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "0297999787c0ce9c166d2588bd0b22e9ad3b5fb920b297ece9ae84bcf47d06ef"
+content-hash = "ee6b949faa2725b3d5c615d5fa091ab24320aba82bf79f5dbf5f3fc3521f1ad5"
