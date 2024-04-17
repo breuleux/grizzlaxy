@@ -20,8 +20,7 @@ sse-starlette = "^1.8.2"
 gifnoc = "^0.3.0"
 
 [tool.poetry.group.dev.dependencies]
-black = ">=23.3.0"
-ruff = "^0.0.274"
+ruff = "^0.3.7"
 
 [tool.poetry.extras]
 yaml = ["pyyaml"]
@@ -36,4 +35,6 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 line-length = 99
+
+[tool.ruff.lint]
 extend-select = ["I"]

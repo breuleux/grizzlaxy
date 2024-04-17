@@ -278,9 +278,7 @@ def grizzlaxy(config=None, **kwargs):
 
 def main(argv=None):
     with gifnoc.cli(
-        argparser=argparse.ArgumentParser(
-            description="Start a grizzlaxy of starbears."
-        ),
+        argparser=argparse.ArgumentParser(description="Start a grizzlaxy of starbears."),
         options=Command(
             mount="grizzlaxy",
             options={
