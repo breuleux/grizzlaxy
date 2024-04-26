@@ -228,8 +228,8 @@ class Grizzlaxy:
                 environment=self.sentry.environment,
                 integrations=[
                     LoggingIntegration(
-                        level=_get_level(self.sentry.log_level or ""),
-                        event_level=_get_level(self.sentry.event_log_level or ""),
+                        level=_get_level(self.sentry.log_level or "ERROR"),
+                        event_level=_get_level(self.sentry.event_log_level or "ERROR"),
                     )
                 ],
             )
