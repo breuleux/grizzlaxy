@@ -190,10 +190,15 @@ class Grizzlaxy:
             collected = collect_routes_from_module(self.module)
 
         routes = compile_routes("/", collected)
-
         self.reloader.inject_routes(routes)
 
-        self.app.router.routes = routes
+        for route in routes:
+            route._grizzlaxy_managed = True
+
+        remainder = [
+            r for r in self.app.router.routes if not getattr(r, "_grizzlaxy_managed", False)
+        ]
+        self.app.router.routes = routes + remainder
         self.app.map = collected
 
     def run(self):
