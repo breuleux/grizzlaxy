@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os
 import sys
@@ -78,6 +79,10 @@ class BaseReloader(InertReloader):
 
     async def reboot(self, request):
         logger.info("Rebooting the server...")
+        os.environ["GRIZZLAXY_RELOAD_OVERRIDE"] = json.dumps(
+            tuple(self.gz.config.socket.getsockname())
+        )
+        self.gz.config.socket.close()
         os.execv(sys.argv[0], sys.argv)
 
     def inject_routes(self, routes):

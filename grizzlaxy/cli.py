@@ -2,6 +2,7 @@ import argparse
 import importlib
 import json
 import sys
+import webbrowser
 from pathlib import Path
 from textwrap import dedent
 from types import SimpleNamespace
@@ -13,12 +14,14 @@ from authlib.integrations.starlette_client import OAuth
 from gifnoc import Command, Option
 from hrepr import H
 from starbear.serve import debug_mode, dev_injections
+from starbear.utils import logger
 from starlette.applications import Starlette
 from starlette.config import Config
 from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from .auth import OAuthMiddleware, PermissionDict, PermissionFile
+from .config import GrizzlaxyConfig
 from .config import config as gzconfig
 from .find import collect_routes, collect_routes_from_module, compile_routes
 from .reload import FullReloader, InertReloader, JuriggedReloader
@@ -27,6 +30,7 @@ from .utils import UsageError
 
 class Grizzlaxy:
     def __init__(self, config):
+        self.config = config
         root = config.root
         module = config.module
         port = config.port
@@ -95,6 +99,15 @@ class Grizzlaxy:
             )
 
         app = Starlette(routes=[])
+
+        @app.on_event("startup")
+        async def _():
+            protocol = "https" if self.ssl.enabled else "http"
+            host, port = self.config.socket.getsockname()
+            url = f"{protocol}://{host}:{port}"
+            logger.info(f"Serving at: \x1b[1m{url}\x1b[0m")
+            if self.config.open_browser:
+                webbrowser.open(url)
 
         def _ensure(filename, enabled):
             if not enabled or not filename:
@@ -206,8 +219,7 @@ class Grizzlaxy:
         try:
             uvicorn.run(
                 self.app,
-                host=self.host,
-                port=self.port,
+                fd=self.config.socket.fileno(),
                 log_level="info",
                 ssl_keyfile=self.ssl_keyfile,
                 ssl_certfile=self.ssl_certfile,
@@ -230,15 +242,16 @@ def main(argv=None):
             mount="grizzlaxy",
             options={
                 ".root": "--root",
-                ".module": Option(aliases=["-m"]),
-                ".port": Option(aliases=["-p"]),
+                ".module": Option(aliases=["--module", "-m"]),
+                ".port": Option(aliases=["--port", "-p"]),
                 ".host": "--host",
                 ".oauth.permissions": "--permissions",
                 ".ssl.keyfile": "--ssl-keyfile",
                 ".ssl.certfile": "--ssl-certfile",
-                ".dev": "--dev",
+                ".dev": Option(aliases=["--dev", "-d"]),
                 ".reload_mode": "--reload-mode",
                 ".watch": "--watch",
+                ".open_browser": "--browser",
             },
         ),
         argv=sys.argv[1:] if argv is None else argv,
