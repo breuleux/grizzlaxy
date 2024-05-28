@@ -63,6 +63,8 @@ class GrizzlaxyConfig:
     dev: bool = False
     # Automatically open browser
     open_browser: bool = False
+    # Whether to use threads
+    use_thread: bool = False
     # Reloading methodology
     reload_mode: str = "jurigged"
     ssl: GrizzlaxySSLConfig = field(default_factory=GrizzlaxySSLConfig)

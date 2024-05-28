@@ -2,6 +2,7 @@ import argparse
 import importlib
 import json
 import sys
+import threading
 import webbrowser
 from pathlib import Path
 from textwrap import dedent
@@ -26,6 +27,15 @@ from .config import config as gzconfig
 from .find import collect_routes, collect_routes_from_module, compile_routes
 from .reload import FullReloader, InertReloader, JuriggedReloader
 from .utils import UsageError
+
+
+class ThreadedServer(uvicorn.Server):
+    def install_signal_handlers(self):
+        pass
+
+    def run(self):
+        thread = threading.Thread(target=self.run)
+        thread.start()
 
 
 class Grizzlaxy:
@@ -219,14 +229,16 @@ class Grizzlaxy:
 
     def run(self):
         token = debug_mode.set(self.dev)
+        uconfig = uvicorn.Config(
+            app=self.app,
+            fd=self.config.socket.fileno(),
+            log_level="info",
+            ssl_keyfile=self.ssl_keyfile,
+            ssl_certfile=self.ssl_certfile,
+        )
+        server_class = ThreadedServer if self.config.use_thread else uvicorn.Server
         try:
-            uvicorn.run(
-                self.app,
-                fd=self.config.socket.fileno(),
-                log_level="info",
-                ssl_keyfile=self.ssl_keyfile,
-                ssl_certfile=self.ssl_certfile,
-            )
+            server_class(uconfig).run()
         finally:
             debug_mode.reset(token)
 
