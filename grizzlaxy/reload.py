@@ -48,7 +48,7 @@ class InertReloader:
     def prep(self):
         pass
 
-    def code_watch(self, watch, module):
+    def code_watch(self, watch):
         pass
 
     def browser_side_code(self):
@@ -69,9 +69,12 @@ class BaseReloader(InertReloader):
         $$BEAR.tabs.addButton("⟳", reboot);
         """
 
-    def code_watch(self, watch, module):
+    def code_watch(self, watch):
         self.obs = Observer()
-        self.obs.schedule(self, watch, recursive=True)
+        if not isinstance(watch, list):
+            watch = [watch]
+        for w in watch:
+            self.obs.schedule(self, w, recursive=True)
         self.obs.start()
 
     async def route_events(self, request):
@@ -116,12 +119,12 @@ class JuriggedReloader(BaseReloader):
         # to properly collect function data
         import codefind  # noqa: F401
 
-    def code_watch(self, watch, module):
+    def code_watch(self, watch):
         import jurigged
 
-        super().code_watch(watch, module)
-        jurigged.watch(str(watch))
-        self.activity.append(self.gz.set_routes)
+        super().code_watch(watch)
+        jurigged.watch(watch)
+        self.activity.append(self.gz.inject_routes)
         self.registry.activity.register(self.handle_jurigged)
 
     def browser_side_code(self):

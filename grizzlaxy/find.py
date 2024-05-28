@@ -91,3 +91,27 @@ def compile_routes(path, obj: object):  # noqa: F811
         return [cls(path, obj, **route_parameters)]
     else:
         raise TypeError(f"Cannot compile route for {path}: {obj}")
+
+
+@ovld
+def collect_locations(routes: dict):  # noqa: F811
+    rval = set()
+    for subroutes in routes.values():
+        rval.update(collect_locations(subroutes))
+    return rval
+
+
+@ovld
+def collect_locations(b: AbstractBear):  # noqa: F811
+    return collect_locations(getattr(b, "fn", None))
+
+
+@ovld
+def collect_locations(obj: object):  # noqa: F811
+    if hasattr(obj, "__globals__"):
+        loc = obj.__globals__.get("__file__", None)
+        return {Path(loc).parent} if loc else set()
+    elif hasattr(obj, "__call__"):
+        return collect_locations(obj.__call__)
+    else:
+        return set()
