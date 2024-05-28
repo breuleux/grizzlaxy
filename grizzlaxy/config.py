@@ -51,6 +51,8 @@ class GrizzlaxyConfig:
     root: str = None
     # Name of the module to run
     module: str = None
+    # Explicitly given routes
+    routes: dict = None
     # Port to serve from
     port: int = 8000
     # Hostname to serve from

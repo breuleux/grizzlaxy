@@ -54,9 +54,10 @@ class Grizzlaxy:
         else:
             self.reloader = FullReloader(self)
 
-        if not ((root is None) ^ (module is None)):
-            # xor requires exactly one of the two to be given
-            raise UsageError("Either the root or module argument must be provided.")
+        if ((root is not None) + (module is not None) + (config.routes is not None)) != 1:
+            raise UsageError(
+                "Either the root or module argument must be provided, or a dict of explicit routes."
+            )
 
         self.reloader.prep()
 
@@ -201,6 +202,8 @@ class Grizzlaxy:
             collected = collect_routes(self.root)
         elif self.module:
             collected = collect_routes_from_module(self.module)
+        elif self.config.routes:
+            collected = self.config.routes
 
         routes = compile_routes("/", collected)
         self.reloader.inject_routes(routes)
