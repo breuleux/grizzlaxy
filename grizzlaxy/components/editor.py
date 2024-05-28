@@ -3,7 +3,7 @@ from functools import cached_property
 from pathlib import Path
 
 from hrepr import H
-from starbear import Component
+from starbear import Component, rewrap
 
 here = Path(__file__).parent
 
@@ -42,7 +42,7 @@ class Editor(Component):
                 if inspect.isawaitable(result):
                     await result
 
-        return on_event
+        return rewrap(func, on_event)
 
     @cached_property
     def node(self):
@@ -74,6 +74,25 @@ class Editor(Component):
                     },
                     "editor": defaults | self.options | overrides,
                     "bindings": {k: self.event_wrap(fn) for k, fn in self.bindings.items()},
+                },
+            }
+        )
+
+
+class ColorizedText(Component):
+    def __init__(self, text, language):
+        self.text = text
+        self.language = language
+
+    @cached_property
+    def node(self):
+        return H.div(
+            __constructor={
+                "module": here / "editor.js",
+                "symbol": "Colorized",
+                "options": {
+                    "text": self.text,
+                    "language": self.language,
                 },
             }
         )

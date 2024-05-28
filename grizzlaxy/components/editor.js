@@ -5,6 +5,19 @@ import sheet2 from "https://cdn.jsdelivr.net/npm/vscode-codicons@0.0.17/dist/cod
 document.adoptedStyleSheets.push(sheet2);
 
 
+editor.defineTheme(
+    "nobg",
+    {
+        base: "vs",
+        inherit: true,
+        rules: [],
+        colors: {
+            "editor.background": "#00000000",
+        }
+    }
+);
+
+
 export class Editor {
     constructor(container, options) {
         this.container = container;
@@ -33,11 +46,17 @@ export class Editor {
             event: "change",
         });
         if (func) {
+            let sel = this.editor.getSelection();
+            params.selection = [
+                [sel.startLineNumber, sel.startColumn],
+                [sel.endLineNumber, sel.endColumn]
+            ];
             func(params);
         }
     }
 
     onChange(evt) {
+        this.updateContextKeys();
         if (!this.options.sendDeltas) {
             this.changesLength = false;
         }
@@ -64,8 +83,50 @@ export class Editor {
         }
     }
 
+    event_updateHeight() {
+        const contentHeight = Math.min(
+            this.options.max_height || 500,
+            this.editor.getContentHeight()
+        );
+        this.container.style.height = `${contentHeight}px`;
+        // Normally the relayout should be automatic, but doing it here
+        // avoids some flickering
+        this.editor.layout({
+            width: this.container.offsetWidth - 10,
+            height: contentHeight
+        });
+    }
+
+    updateContextKeys() {
+        let {lineNumber, column} = this.editor.getPosition();
+        let model = this.editor.getModel();
+        let total = model.getLineCount();
+        this.atBeginning.set(lineNumber == 1);
+        this.atEnd.set(lineNumber == total);
+        if (total > 1) {
+            this.multiline.set(true);
+        }
+        else {
+            let upToCursor = model.getValueInRange({
+                startLineNumber: lineNumber,
+                endLineNumber: lineNumber,
+                startColumn: 0,
+                endColumn: column,
+            });
+            this.multiline.set(
+                upToCursor.match(/[\(\[\{:,]$|"""$|^@/)
+            );
+        }
+    }
+
     setupEditor() {
         this.editor = editor.create(this.container, this.options.editor);
+
+        this.atBeginning = this.editor.createContextKey("atBeginning", true);
+        this.atEnd = this.editor.createContextKey("atEnd", true);
+        this.multiline = this.editor.createContextKey("multiline", false);
+
+        this.editor.onDidChangeCursorPosition(this.updateContextKeys.bind(this));
 
         if (this.options.onChange) {
             this.editor.getModel().onDidChangeContent(
@@ -73,15 +134,57 @@ export class Editor {
             )
         }
 
-        for (let [key, func] of Object.entries(this.options.bindings || ({}))) {
+        for (let [key_cond, func] of Object.entries(this.options.bindings || ({}))) {
             let binding = 0;
+            let [key, precondition = null] = key_cond.split(/ when /, 2);
             for (let part of key.split(/ *\+ */)) {
                 binding = binding | (KM[part] || KC[part]);
             }
-            this.editor.addCommand(
-                binding,
-                this.trigger.bind(this, func, {event: "command", key: key}),
-            );
+            this.editor.addAction({
+                id: `binding-${key}`,
+                label: `binding-${key}`,
+                keybindings: [binding],
+                run: this.trigger.bind(this, func, {event: "command", key: key}),
+                precondition: precondition,
+            });
         }
+        this.editor.onDidContentSizeChange(this.event_updateHeight.bind(this));
+        this.event_updateHeight();
+    }
+
+    set(text, focus = true, position = null) {
+        this.editor.setValue(text);
+        if (focus) {
+            this.editor.focus();
+        }
+        if (position === "start") {
+            this.editor.setPosition({lineNumber: 1, column: 0});
+        }
+        else if (position === "endL1") {
+            this.editor.setPosition({lineNumber: 1, column: 1000000});
+        }
+        else if (position === "end") {
+            let nlines = this.editor.getModel().getLineCount();
+            this.editor.setPosition({lineNumber: nlines, column: 1000000});
+        }
+    }
+
+    insert(text, focus = true) {
+        let selection = this.editor.getSelection();
+        let op = {range: selection, text: text, forceMoveMarkers: true};
+        this.editor.executeEdits("my-source", [op]);
+        if (focus) {
+            this.editor.focus();
+        }
+    }
+}
+
+
+export class Colorized {
+    constructor(element, options) {
+        this.element = element;
+        editor
+        .colorize(options.text, options.language)
+        .then(result => { element.innerHTML = result; });
     }
 }

@@ -1,3 +1,3 @@
-from .editor import Editor
+from .editor import ColorizedText, Editor
 
-__all__ = ["Editor"]
+__all__ = ["ColorizedText", "Editor"]
