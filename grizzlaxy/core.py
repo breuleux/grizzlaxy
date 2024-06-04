@@ -37,7 +37,7 @@ class ThreadedServer(uvicorn.Server):
         pass
 
     def run(self):
-        thread = threading.Thread(target=self.run)
+        thread = threading.Thread(target=super().run)
         thread.start()
 
 
