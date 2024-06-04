@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "grizzlaxy"
-version = "0.3.4"
+version = "0.4.0"
 description = "Create an app from a galaxy of starbears"
 authors = ["Olivier Breuleux <breuleux@gmail.com>"]
 license = "MIT"
