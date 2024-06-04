@@ -17,6 +17,9 @@ class Editor(Component):
         autofocus=True,
         debounce=0.25,
         language="text",
+        max_height=0,
+        first_lineno=False,
+        highlight=None,
         options={},
     ):
         self.value = initial_value
@@ -25,6 +28,9 @@ class Editor(Component):
         self.autofocus = autofocus
         self.debounce = debounce
         self.language = language
+        self.max_height = max_height
+        self.first_lineno = first_lineno
+        self.highlight = highlight
         self.options = options
 
     def event_wrap(self, func):
@@ -67,11 +73,9 @@ class Editor(Component):
                     "onChangeDebounce": self.debounce,
                     "autofocus": self.autofocus,
                     "sendDeltas": True,
-                    "filename": "test",
-                    "status": {
-                        "name": "error",
-                        "message": "everything went poorly",
-                    },
+                    "maxHeight": self.max_height,
+                    "firstLineno": self.first_lineno,
+                    "highlight": self.highlight,
                     "editor": defaults | self.options | overrides,
                     "bindings": {k: self.event_wrap(fn) for k, fn in self.bindings.items()},
                 },

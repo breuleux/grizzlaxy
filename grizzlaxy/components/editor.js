@@ -1,4 +1,4 @@
-import { editor, KeyMod as KM, KeyCode as KC } from "https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/+esm"
+import { editor, Range, KeyMod as KM, KeyCode as KC } from "https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/+esm"
 import sheet2 from "https://cdn.jsdelivr.net/npm/vscode-codicons@0.0.17/dist/codicon.min.css" with { type: "css" };
 
 
@@ -22,6 +22,9 @@ export class Editor {
     constructor(container, options) {
         this.container = container;
         this.options = options;
+        if (this.options.firstLineno !== false) {
+            this.options.editor.lineNumbers = i => i + this.options.firstLineno - 1
+        }
 
         this.setupElement();
         this.setupEditor();
@@ -85,7 +88,7 @@ export class Editor {
 
     event_updateHeight() {
         const contentHeight = Math.min(
-            this.options.max_height || 500,
+            this.options.maxHeight || 500,
             this.editor.getContentHeight()
         );
         this.container.style.height = `${contentHeight}px`;
@@ -148,6 +151,26 @@ export class Editor {
                 precondition: precondition,
             });
         }
+
+        let highlight = this.options.highlight?.line;
+        if (highlight !== undefined) {
+            highlight -= (this.options.firstLineno || 1) - 1;
+            this.hl = [];
+            this.hl = this.editor.deltaDecorations(this.hl, [
+                {
+                    range: new Range(highlight, 1, highlight, 1),
+                    options: {
+                        isWholeLine: true,
+                        className: this.options.highlight.class_name,
+                    },
+                },
+            ]);
+            setTimeout(
+                () => this.editor.revealLineInCenter(highlight),
+                0,
+            )
+        }
+
         this.editor.onDidContentSizeChange(this.event_updateHeight.bind(this));
         this.event_updateHeight();
     }
