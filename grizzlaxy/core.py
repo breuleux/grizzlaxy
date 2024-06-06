@@ -30,7 +30,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from .auth import OAuthMiddleware, PermissionDict, PermissionFile
 from .find import collect_locations, collect_routes, collect_routes_from_module, compile_routes
-from .reload import FullReloader, InertReloader, JuriggedReloader
+from .reload import FullReloader, InertJuriggedReloader, InertReloader, JuriggedReloader
 from .utils import UsageError
 
 
@@ -124,6 +124,8 @@ class GrizzlaxyBase:
             self.reloader = InertReloader(self)
         elif self.reload_mode == "jurigged":
             self.reloader = JuriggedReloader(self)
+        elif self.reload_mode == "jurigged_noreload":
+            self.reloader = InertJuriggedReloader(self)
         else:
             self.reloader = FullReloader(self)
 
