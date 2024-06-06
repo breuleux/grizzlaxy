@@ -7,7 +7,9 @@ import random
 import socket
 import sys
 import threading
+import time
 import webbrowser
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
@@ -32,13 +34,22 @@ from .reload import FullReloader, InertReloader, JuriggedReloader
 from .utils import UsageError
 
 
-class ThreadedServer(uvicorn.Server):
+class ThreadableServer(uvicorn.Server):
     def install_signal_handlers(self):
         pass
 
-    def run(self):
-        thread = threading.Thread(target=super().run)
+    @contextmanager
+    def run_in_thread(self):
+        # Code taken from https://stackoverflow.com/questions/61577643/python-how-to-use-fastapi-and-uvicorn-run-without-blocking-the-thread
+        thread = threading.Thread(target=self.run)
         thread.start()
+        try:
+            while not self.started:
+                time.sleep(1e-3)
+            yield
+        finally:
+            self.should_exit = True
+            thread.join()
 
 
 @dataclass
@@ -297,9 +308,25 @@ class GrizzlaxyBase:
             ssl_keyfile=self.ssl_keyfile,
             ssl_certfile=self.ssl_certfile,
         )
-        server_class = ThreadedServer if self.use_thread else uvicorn.Server
         try:
-            server_class(uconfig).run()
+            uvicorn.Server(uconfig).run()
+        finally:
+            debug_mode.reset(token)
+
+    @contextmanager
+    def run_in_thread(self):
+        self._setup()
+        token = debug_mode.set(self.dev)
+        uconfig = uvicorn.Config(
+            app=self.app,
+            fd=self.socket.fileno(),
+            log_level="info",
+            ssl_keyfile=self.ssl_keyfile,
+            ssl_certfile=self.ssl_certfile,
+        )
+        try:
+            with ThreadableServer(uconfig).run_in_thread():
+                yield
         finally:
             debug_mode.reset(token)
 
