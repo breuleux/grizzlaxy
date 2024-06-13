@@ -175,10 +175,14 @@ export class Editor {
         this.event_updateHeight();
     }
 
+    focus() {
+        this.editor.focus();
+    }
+
     set(text, focus = true, position = null) {
         this.editor.setValue(text);
         if (focus) {
-            this.editor.focus();
+            this.focus();
         }
         if (position === "start") {
             this.editor.setPosition({lineNumber: 1, column: 0});
@@ -197,7 +201,7 @@ export class Editor {
         let op = {range: selection, text: text, forceMoveMarkers: true};
         this.editor.executeEdits("my-source", [op]);
         if (focus) {
-            this.editor.focus();
+            this.focus();
         }
     }
 }
