@@ -300,7 +300,7 @@ class GrizzlaxyBase:
         self.app = app
         self.inject_routes()
 
-    def run(self):
+    def run(self, **uvicorn_options):
         self._setup()
         token = debug_mode.set(self.dev)
         uconfig = uvicorn.Config(
@@ -309,6 +309,7 @@ class GrizzlaxyBase:
             log_level="info",
             ssl_keyfile=self.ssl_keyfile,
             ssl_certfile=self.ssl_certfile,
+            **uvicorn_options,
         )
         try:
             uvicorn.Server(uconfig).run()
@@ -316,7 +317,7 @@ class GrizzlaxyBase:
             debug_mode.reset(token)
 
     @contextmanager
-    def run_in_thread(self):
+    def run_in_thread(self, **uvicorn_options):
         self._setup()
         token = debug_mode.set(self.dev)
         uconfig = uvicorn.Config(
@@ -325,6 +326,7 @@ class GrizzlaxyBase:
             log_level="info",
             ssl_keyfile=self.ssl_keyfile,
             ssl_certfile=self.ssl_certfile,
+            **uvicorn_options,
         )
         try:
             with ThreadableServer(uconfig).run_in_thread():
