@@ -19,8 +19,8 @@ editor.defineTheme(
 
 
 export class Editor {
-    constructor(container, options) {
-        this.container = container;
+    constructor(options) {
+        this.container = document.createElement("div");
         this.options = options;
         if (this.options.firstLineno !== false) {
             this.options.editor.lineNumbers = i => i + this.options.firstLineno - 1
@@ -32,6 +32,10 @@ export class Editor {
         if (this.options.autofocus) {
             this.editor.focus();
         }
+    }
+
+    getElement() {
+        return this.container;
     }
 
     setupElement() {
@@ -207,11 +211,10 @@ export class Editor {
 }
 
 
-export class Colorized {
-    constructor(element, options) {
-        this.element = element;
-        editor
-        .colorize(options.text, options.language)
-        .then(result => { element.innerHTML = result; });
-    }
+export function colorized(options) {
+    const element = document.createElement("div");
+    editor
+    .colorize(options.text, options.language)
+    .then(result => { element.innerHTML = result; });
+    return element;
 }

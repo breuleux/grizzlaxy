@@ -2,7 +2,7 @@ import inspect
 from functools import cached_property
 from pathlib import Path
 
-from hrepr import H
+from hrepr import J
 from starbear import Component, rewrap
 
 here = Path(__file__).parent
@@ -64,22 +64,16 @@ class Editor(Component):
             "value": self.value,
             "language": self.language,
         }
-        return H.div(
-            __constructor={
-                "module": here / "editor.js",
-                "symbol": "Editor",
-                "options": {
-                    "onChange": self.event_wrap(self._on_change),
-                    "onChangeDebounce": self.debounce,
-                    "autofocus": self.autofocus,
-                    "sendDeltas": True,
-                    "maxHeight": self.max_height,
-                    "firstLineno": self.first_lineno,
-                    "highlight": self.highlight,
-                    "editor": defaults | self.options | overrides,
-                    "bindings": {k: self.event_wrap(fn) for k, fn in self.bindings.items()},
-                },
-            }
+        return J(namespace=here / "editor.js").Editor(
+            onChange=self.event_wrap(self._on_change),
+            onChangeDebounce=self.debounce,
+            autofocus=self.autofocus,
+            sendDeltas=True,
+            maxHeight=self.max_height,
+            firstLineno=self.first_lineno,
+            highlight=self.highlight,
+            editor=defaults | self.options | overrides,
+            bindings={k: self.event_wrap(fn) for k, fn in self.bindings.items()},
         )
 
 
@@ -90,13 +84,7 @@ class ColorizedText(Component):
 
     @cached_property
     def node(self):
-        return H.div(
-            __constructor={
-                "module": here / "editor.js",
-                "symbol": "Colorized",
-                "options": {
-                    "text": self.text,
-                    "language": self.language,
-                },
-            }
+        return J(namespace=here / "editor.js").colorized(
+            text=self.text,
+            language=self.language,
         )
